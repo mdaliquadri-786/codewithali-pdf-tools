@@ -1882,7 +1882,8 @@ input, select, textarea {
   opacity: 1;
   pointer-events: auto;
 }
-/* Mobile Navigation & Responsive Menu */
+
+/* Mobile Nav Toggle & Responsive Menu */
 .nav-toggle {
   display: none;
   background: var(--bg-tertiary);

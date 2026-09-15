@@ -1,29 +1,32 @@
 /**
- * CodeWithAli PDF Tools - Offline Service Worker
- * Caches core app shell and CDN libraries for 100% offline document manipulation
+ * CodeWithAli PDF Tools - Production Service Worker v15.0
+ * Caches core app shell and verified CDN libraries for genuine 100% offline capability
  */
 
-const CACHE_NAME = 'cwa-pdf-cache-v1';
+const CACHE_NAME = 'codewithali-pdf-cache-v15';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './tool.html',
+  './why-us.html',
   './css/style.css',
   './js/script.js',
   './js/pdf-engine-client.js',
   './manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-  'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE).catch(err => {
-        console.warn('Service worker pre-cache warning:', err);
+        console.warn('[PWA] Pre-cache notice:', err.message);
       });
     })
   );
@@ -56,9 +59,8 @@ self.addEventListener('fetch', (event) => {
         });
         return response;
       }).catch(() => {
-        // Offline fallback
         if (event.request.destination === 'document') {
-          return caches.match('./index.html');
+          return caches.match('./tool.html') || caches.match('./index.html');
         }
       });
     })

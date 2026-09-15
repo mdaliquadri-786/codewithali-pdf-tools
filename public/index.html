@@ -8,7 +8,6 @@
   <meta name="keywords" content="PDF tools, merge pdf, split pdf, compress pdf, pdf to word, urdu pdf, arabic pdf, telugu pdf, client side pdf, free pdf converter">
   <meta name="author" content="Mohammed Ali Quadri (CodeWithAli)">
   <link rel="canonical" href="https://codewithali-pdf-tools.vercel.app/">
-  <link rel="icon" type="image/svg+xml" href="gemini-svg.svg"
 
   <!-- PWA & Mobile Web App Capabilities -->
   <link rel="manifest" href="manifest.json">
@@ -67,7 +66,6 @@
   
   <!-- Custom Stylesheet -->
   <link rel="stylesheet" href="css/style.css">
-  <meta name="google-site-verification" content="ArJU6uXyyUrLHV1_LHWZV4Ls6k8Sr3h0h_AGhLJQs5Y" />
 </head>
 <body>
 
@@ -83,7 +81,7 @@
         </div>
       </a>
 
-      <nav class="nav-menu">
+      <nav class="nav-menu" id="navMenu">
         <a href="index.html" class="nav-link active">Home</a>
         <a href="tool.html?tool=merge" class="nav-link">Merge</a>
         <a href="tool.html?tool=split" class="nav-link">Split</a>
@@ -92,7 +90,7 @@
         <a href="why-us.html" class="nav-link">Why CodeWithAli</a>
       </nav>
 
-    <div class="nav-actions">
+      <div class="nav-actions">
         <button id="installAppBtn" class="cta-btn-sm install-btn" style="display: none;" title="Install App">
           <i class="fa-solid fa-download"></i> Install
         </button>
@@ -106,6 +104,7 @@
           <i class="fa-solid fa-bolt"></i> Get Started
         </a>
       </div>
+    </div>
   </header>
 
     <!-- Hero Section -->
@@ -851,7 +850,8 @@
   <!-- App Script -->
   <!-- In-Browser Client PDF Engine (Zero-server fallback) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://unpkg.com/pdf-lib@1.17.9/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script>window.PDFLib || document.write('<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>')</script>
   <script src="js/pdf-engine-client.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/script.js"></script>
