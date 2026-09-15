@@ -1,0 +1,381 @@
+/**
+ * CodeWithAli PDF Tools Suite - Express API Routes
+ * Endpoints for PDF manipulation utilities
+ */
+
+let express;
+let multer;
+
+try {
+  express = require('express');
+} catch (e) {
+  const mini = require('../utils/miniExpress');
+  express = mini.express;
+}
+
+try {
+  multer = require('multer');
+} catch (e) {
+  const mini = require('../utils/miniExpress');
+  multer = mini.multer;
+}
+
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const pdfHelper = require('../utils/pdfHelper');
+
+const router = express.Router();
+
+// Configure storage paths
+const os = require('os');
+const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FIREBASE_CONFIG);
+const UPLOADS_DIR = isServerless ? path.join(os.tmpdir(), 'cwa_uploads') : path.join(__dirname, '../uploads');
+const OUTPUTS_DIR = isServerless ? path.join(os.tmpdir(), 'cwa_outputs') : path.join(__dirname, '../outputs');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+fs.mkdirSync(OUTPUTS_DIR, { recursive: true });
+
+// Setup Multer storage
+const storage = multer.diskStorage ? multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const unique = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`;
+    cb(null, unique);
+  }
+}) : { dest: UPLOADS_DIR };
+
+const upload = multer({
+  storage: storage,
+  dest: UPLOADS_DIR,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB per file limit
+});
+
+function generateOutputName(prefix, ext = '.pdf') {
+  return `${prefix}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
+}
+
+// -----------------------------------------------------------------------------
+// 1. MERGE PDF (POST /api/pdf/merge)
+// -----------------------------------------------------------------------------
+router.post('/merge', upload.array('files', 20), async (req, res) => {
+  try {
+    const files = req.files || [];
+    if (files.length < 2) {
+      return res.status(400).json({ error: 'Please upload at least 2 PDF files to merge.' });
+    }
+
+    let orderedFiles = files;
+    // Check if client provided custom order
+    if (req.body.fileOrder) {
+      try {
+        const order = JSON.parse(req.body.fileOrder);
+        if (Array.isArray(order) && order.length === files.length) {
+          const fileMap = new Map();
+          files.forEach(f => fileMap.set(f.originalname, f));
+          const sorted = [];
+          order.forEach(name => {
+            if (fileMap.has(name)) sorted.push(fileMap.get(name));
+          });
+          if (sorted.length === files.length) {
+            orderedFiles = sorted;
+          }
+        }
+      } catch (e) {
+        // Fallback to default order
+      }
+    }
+
+    const outFilename = generateOutputName('merged');
+    const outputPath = path.join(OUTPUTS_DIR, outFilename);
+    const inputPaths = orderedFiles.map(f => f.path);
+
+    const result = await pdfHelper.mergePDFs(inputPaths, outputPath);
+
+    res.json({
+      success: true,
+      message: 'PDFs merged successfully!',
+      downloadUrl: `/api/pdf/download/${outFilename}`,
+      filename: 'CodeWithAli_Merged.pdf',
+      pageCount: result.pageCount || result.page_count
+    });
+  } catch (error) {
+    console.error('Merge error:', error);
+    res.status(500).json({ error: error.message || 'Failed to merge PDFs.' });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 2. SPLIT PDF (POST /api/pdf/split)
+// -----------------------------------------------------------------------------
+router.post('/split', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'Please upload a PDF file to split.' });
+    }
+
+    const mode = req.body.mode || 'all'; // 'all' or 'range'
+    const pageRange = req.body.pageRange || '';
+    const splitDir = path.join(OUTPUTS_DIR, `split_${Date.now()}`);
+
+    const result = await pdfHelper.splitPDF(file.path, mode, pageRange, splitDir);
+
+    const outBase = path.basename(result.output);
+    res.json({
+      success: true,
+      message: mode === 'all' ? 'PDF split into individual pages!' : 'Specified pages extracted successfully!',
+      downloadUrl: `/api/pdf/download-split/${path.basename(splitDir)}/${outBase}`,
+      isZip: result.is_zip !== undefined ? result.is_zip : mode === 'all',
+      filename: mode === 'all' ? 'CodeWithAli_Split_Pages.zip' : 'CodeWithAli_Extracted_Pages.pdf'
+    });
+  } catch (error) {
+    console.error('Split error:', error);
+    res.status(500).json({ error: error.message || 'Failed to split PDF.' });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 3. COMPRESS PDF (POST /api/pdf/compress)
+// -----------------------------------------------------------------------------
+router.post('/compress', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'Please upload a PDF file to compress.' });
+    }
+
+    const level = req.body.level || 'recommended'; // 'extreme', 'recommended', 'low'
+    const outFilename = generateOutputName('compressed');
+    const outputPath = path.join(OUTPUTS_DIR, outFilename);
+
+    const result = await pdfHelper.compressPDF(file.path, level, outputPath);
+
+    res.json({
+      success: true,
+      message: 'PDF compressed successfully!',
+      downloadUrl: `/api/pdf/download/${outFilename}`,
+      filename: `CodeWithAli_Compressed_${file.originalname || 'document.pdf'}`,
+      originalSize: result.original_size,
+      compressedSize: result.compressed_size,
+      reductionPercentage: result.reduction_percentage
+    });
+  } catch (error) {
+    console.error('Compress error:', error);
+    res.status(500).json({ error: error.message || 'Failed to compress PDF.' });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 4. IMAGE TO PDF (POST /api/pdf/image-to-pdf)
+// -----------------------------------------------------------------------------
+router.post('/image-to-pdf', upload.array('files', 50), async (req, res) => {
+  try {
+    const files = req.files || [];
+    if (files.length === 0) {
+      return res.status(400).json({ error: 'Please upload at least one image.' });
+    }
+
+    const orientation = req.body.orientation || 'portrait'; // 'portrait', 'landscape', 'fit'
+    const margin = parseInt(req.body.margin, 10) || 20;
+    const pageSize = req.body.pageSize || 'a4';
+
+    const outFilename = generateOutputName('images_to_pdf');
+    const outputPath = path.join(OUTPUTS_DIR, outFilename);
+    const imagePaths = files.map(f => f.path);
+
+    await pdfHelper.imagesToPDF(imagePaths, { orientation, margin, pageSize }, outputPath);
+
+    res.json({
+      success: true,
+      message: 'Images converted to PDF successfully!',
+      downloadUrl: `/api/pdf/download/${outFilename}`,
+      filename: 'CodeWithAli_Images.pdf'
+    });
+  } catch (error) {
+    console.error('Image to PDF error:', error);
+    res.status(500).json({ error: error.message || 'Failed to convert images to PDF.' });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 5. WATERMARK PDF (POST /api/pdf/watermark)
+// -----------------------------------------------------------------------------
+router.post('/watermark', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'Please upload a PDF file to watermark.' });
+    }
+
+    const text = req.body.text || 'CONFIDENTIAL';
+    const position = req.body.position || 'diagonal'; // 'diagonal', 'center', 'bottom-right', 'top-left'
+    const opacity = parseFloat(req.body.opacity) || 0.3;
+    const fontSize = parseInt(req.body.fontSize, 10) || 48;
+    const color = req.body.color || '#666666';
+
+    const outFilename = generateOutputName('watermarked');
+    const outputPath = path.join(OUTPUTS_DIR, outFilename);
+
+    await pdfHelper.addWatermark(file.path, text, { position, opacity, fontSize, color }, outputPath);
+
+    res.json({
+      success: true,
+      message: 'Watermark stamped across all pages successfully!',
+      downloadUrl: `/api/pdf/download/${outFilename}`,
+      filename: `CodeWithAli_Watermarked_${file.originalname || 'document.pdf'}`
+    });
+  } catch (error) {
+    console.error('Watermark error:', error);
+    res.status(500).json({ error: error.message || 'Failed to add watermark.' });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 6. ROTATE PDF (POST /api/pdf/rotate)
+// -----------------------------------------------------------------------------
+router.post('/rotate', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Please upload a PDF file.' });
+
+    const angle = parseInt(req.body.angle, 10) || 90;
+    const outFilename = generateOutputName('rotated');
+    const outputPath = path.join(OUTPUTS_DIR, outFilename);
+
+    await pdfHelper.rotatePDF(file.path, angle, outputPath);
+
+    res.json({
+      success: true,
+      message: `PDF rotated by ${angle}°!`,
+      downloadUrl: `/api/pdf/download/${outFilename}`,
+      filename: `CodeWithAli_Rotated.pdf`
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 7. ADD PAGE NUMBERS (POST /api/pdf/page-numbers)
+// -----------------------------------------------------------------------------
+router.post('/page-numbers', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Please upload a PDF file.' });
+
+    const format = req.body.format || 'Page {n} of {total}';
+    const position = req.body.position || 'bottom-center';
+    const outFilename = generateOutputName('numbered');
+    const outputPath = path.join(OUTPUTS_DIR, outFilename);
+
+    await pdfHelper.addPageNumbers(file.path, { format, position }, outputPath);
+
+    res.json({
+      success: true,
+      message: 'Page numbers added successfully!',
+      downloadUrl: `/api/pdf/download/${outFilename}`,
+      filename: `CodeWithAli_Numbered.pdf`
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 8. EXTRACT TEXT (POST /api/pdf/extract-text)
+// -----------------------------------------------------------------------------
+router.post('/extract-text', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Please upload a PDF file.' });
+
+    const result = await pdfHelper.extractText(file.path);
+    res.json({
+      success: true,
+      text: result.text,
+      pageCount: result.page_count
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 9. MARKDOWN TO PDF (POST /api/pdf/markdown-to-pdf)
+// -----------------------------------------------------------------------------
+router.post('/markdown-to-pdf', (req, res, next) => {
+  // If JSON or urlencoded
+  next();
+}, async (req, res) => {
+  try {
+    const markdown = req.body.markdown;
+    if (!markdown) return res.status(400).json({ error: 'Markdown text is required.' });
+
+    const outFilename = generateOutputName('doc');
+    const outputPath = path.join(OUTPUTS_DIR, outFilename);
+
+    await pdfHelper.markdownToPDF(markdown, outputPath);
+
+    res.json({
+      success: true,
+      downloadUrl: `/api/pdf/download/${outFilename}`,
+      filename: 'CodeWithAli_Document.pdf'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// 10. PDF TO WORD (POST /api/pdf/pdf-to-word)
+// -----------------------------------------------------------------------------
+router.post('/pdf-to-word', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Please upload a PDF file.' });
+
+    const baseName = path.basename(file.originalname, path.extname(file.originalname));
+    const outFilename = `${baseName}_Converted_${Date.now()}.docx`;
+    const outputPath = path.join(OUTPUTS_DIR, outFilename);
+
+    await pdfHelper.pdfToWord(file.path, outputPath);
+
+    res.json({
+      success: true,
+      message: 'PDF converted to Word document (.docx) successfully!',
+      downloadUrl: `/api/pdf/download/${outFilename}`,
+      filename: `${baseName}.docx`
+    });
+  } catch (error) {
+    console.error('PDF to Word conversion error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DOWNLOAD ENDPOINTS
+// -----------------------------------------------------------------------------
+router.get('/download/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(OUTPUTS_DIR, filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('Processed file not found or expired.');
+  }
+
+  res.download(filePath, filename);
+});
+
+router.get('/download-split/:dir/:filename', (req, res) => {
+  const { dir, filename } = req.params;
+  const filePath = path.join(OUTPUTS_DIR, dir, filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('Split file not found or expired.');
+  }
+
+  res.download(filePath, filename);
+});
+
+module.exports = router;
