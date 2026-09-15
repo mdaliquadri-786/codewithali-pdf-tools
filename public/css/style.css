@@ -1882,3 +1882,58 @@ input, select, textarea {
   opacity: 1;
   pointer-events: auto;
 }
+/* Mobile Navigation & Responsive Menu */
+.nav-toggle {
+  display: none;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 1.15rem;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+.nav-toggle:hover {
+  background-color: var(--border-color);
+}
+.install-btn {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+@media (max-width: 768px) {
+  .nav-toggle {
+    display: flex;
+  }
+  .desktop-only-btn {
+    display: none !important;
+  }
+  .nav-container {
+    position: relative;
+  }
+  .nav-menu {
+    display: none;
+    position: absolute;
+    top: 70px;
+    left: 0;
+    width: 100%;
+    background-color: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-color);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    flex-direction: column;
+    padding: 20px;
+    gap: 14px;
+    z-index: 1000;
+  }
+  .nav-menu.open {
+    display: flex !important;
+  }
+  .brand-text span {
+    display: none;
+  }
+}
