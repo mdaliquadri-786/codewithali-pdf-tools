@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 200);
 
-    // 4. IMAGE TO PDF CRASH FIX (Progressive JPEG / Canvas Fix)
+    // 4. IMAGE TO PDF CRASH FIX
     if (typeof Engine1_PDFLib !== 'undefined') {
         Engine1_PDFLib.imageToPDF = async function(files) {
             const { PDFDocument } = await this.ensureLibrary();
@@ -84,13 +84,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const page = pdfDoc.addPage([embeddedImage.width, embeddedImage.height]);
                 page.drawImage(embeddedImage, { x: 0, y: 0, width: embeddedImage.width, height: embeddedImage.height });
             }
-
             const bytes = await pdfDoc.save();
             return new Blob([bytes], { type: 'application/pdf' });
         };
     }
 
-    // --- HELPER: Extract Text directly using pdf.js ---
     async function extractTextFromPDF(file) {
         if (!window.pdfjsLib) throw new Error("PDF.js library not found for text extraction.");
         const arrayBuffer = await file.arrayBuffer();
@@ -104,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return fullText;
     }
 
-    // 5. SAFE OVERRIDE: Wire up Genuine Tools + AI Summarize + Extract Text
+    // 5. SAFE OVERRIDE
     setTimeout(() => {
         const actionBtn = document.getElementById('actionSubmitBtn');
         if (actionBtn) {
@@ -144,7 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     let resultBlob = null;
                     let downloadFilename = 'output.pdf';
 
-                    // --- NEW GENUINE TOOLS ---
                     if (toolKey === 'word-to-pdf' && window.RealWordToPDF) {
                         resultBlob = await window.RealWordToPDF.convert(file);
                         downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.pdf`;
@@ -194,24 +191,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_PDFA.pdf`;
                     }
                     
-                    // --- SMART AI SUMMARIZE (Gemini 1.5 Flash + Export Options) ---
+                    // --- SMART AI SUMMARIZE ---
                     else if (toolKey === 'ai-summarize') {
                         
-                        // Smart Key Retrieval & Validation
+                        // Dynamically ask for the API Key so it's not hardcoded publicly
                         let apiKey = localStorage.getItem('cwa_gemini_key');
-                        if (!apiKey || !apiKey.startsWith('AIza')) {
-                            apiKey = prompt("Please enter a valid Google Gemini API Key.\n\n(It MUST start with 'AIza...'. Get one for free at aistudio.google.com/app/apikey):");
-                            if (!apiKey) throw new Error("Operation cancelled. API Key is required.");
+                        if (!apiKey) {
+                            apiKey = prompt("Please enter your Google Gemini API Key (e.g. AQ.Ab8R... or AIza...):");
+                            if (!apiKey) throw new Error("Operation cancelled. API Key is required to summarize PDFs.");
                             localStorage.setItem('cwa_gemini_key', apiKey.trim());
                         }
 
                         const base64PDF = await new Promise((resolve, reject) => {
                             const reader = new FileReader();
-                            reader.onloadend = () => {
-                                const result = reader.result;
-                                const base64 = result.split(',')[1];
-                                resolve(base64);
-                            };
+                            reader.onloadend = () => resolve(reader.result.split(',')[1]);
                             reader.onerror = () => reject(new Error("Failed to read PDF file."));
                             reader.readAsDataURL(file);
                         });
@@ -245,10 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             - (Highlight 1)
                             - (Highlight 2)
                             - (Highlight 3)
-                            - (Highlight 4)
-                            - (Highlight 5)
                             
-                            Maintain a strictly formal, objective, and corporate tone. If the document is in Arabic or Urdu, use highly formal language with perfect grammar matching this exact markdown structure.`;
+                            Maintain a strictly formal, objective tone. If the document is in Arabic or Urdu, use highly formal language with perfect grammar matching this markdown structure.`;
 
                         const payload = {
                             contents: [{
@@ -259,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }]
                         };
 
-                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`, {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -267,19 +258,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         const data = await response.json();
                         
-                        // Auto-correct bad keys
                         if (!response.ok) {
-                            if (data.error && (data.error.message.includes("API key not valid") || data.error.message.includes("authentication"))) {
-                                localStorage.removeItem('cwa_gemini_key');
-                                throw new Error("Invalid API Key! Your key has been cleared. Please click 'Process Document' again and enter a real key starting with 'AIza'.");
-                            }
-                            throw new Error(data.error?.message || "AI API Error.");
+                            localStorage.removeItem('cwa_gemini_key'); // Clear key if invalid
+                            throw new Error(data.error?.message || "AI API Error. Your key has been cleared. Please try again.");
                         }
 
                         const aiText = data.candidates[0].content.parts[0].text;
                         const exportFormat = document.getElementById('aiExportFormat')?.value || 'pdf';
 
-                        // EXPORT LOGIC (PDF, DOCX, TXT)
                         if (exportFormat === 'pdf' && window.Engine1_PDFLib && window.Engine1_PDFLib.markdownToPDF) {
                             const reportTitle = `# CodeWithAli AI Intelligence Report\n**Source File:** ${file.name}\n\n---\n\n`;
                             resultBlob = await window.Engine1_PDFLib.markdownToPDF(reportTitle + aiText);
