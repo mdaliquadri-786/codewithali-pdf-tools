@@ -1,5 +1,33 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Widen accepted file types for new tools dynamically
+    // 1. INJECT CSS FIX: Stop long file names from overlapping cards
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .files-container {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+            gap: 12px !important;
+            width: 100% !important;
+        }
+        .file-card {
+            min-width: 0 !important; 
+            max-width: 100% !important;
+            overflow: hidden !important;
+        }
+        .file-card-info {
+            min-width: 0 !important;
+            overflow: hidden !important;
+        }
+        .file-card-info strong {
+            display: block !important;
+            width: 100% !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // 2. WIDEN ACCEPTED FILES dynamically for our genuine tools
     if (window.TOOLS) {
         if (TOOLS['word-to-pdf']) TOOLS['word-to-pdf'].accept = '.doc,.docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
         if (TOOLS['excel-to-pdf']) TOOLS['excel-to-pdf'].accept = '.xlsx,.xls,.csv';
@@ -7,34 +35,73 @@ document.addEventListener('DOMContentLoaded', () => {
         if (TOOLS['ppt-to-pdf']) TOOLS['ppt-to-pdf'].accept = '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation';
     }
 
-    // 2. Safe Override: Wait a moment for script.js to attach its events, then hook into it.
+    // 3. IMAGE TO PDF CRASH FIX: 
+    // Replaces original Engine1_PDFLib image engine with a Canvas Rasterizer to handle Progressive JPEGs & WebP effortlessly.
+    if (typeof Engine1_PDFLib !== 'undefined') {
+        Engine1_PDFLib.imageToPDF = async function(files) {
+            const { PDFDocument } = await this.ensureLibrary();
+            const pdfDoc = await PDFDocument.create();
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                
+                // Load image into browser safely
+                const imgBitmap = await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    const url = URL.createObjectURL(file);
+                    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+                    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Failed to load image: ${file.name}`)); };
+                    img.src = url;
+                });
+
+                // Canvas normalization eliminates all format crashes
+                const canvas = document.createElement('canvas');
+                canvas.width = imgBitmap.naturalWidth || imgBitmap.width;
+                canvas.height = imgBitmap.naturalHeight || imgBitmap.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(imgBitmap, 0, 0);
+
+                const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                canvas.width = 0;
+                canvas.height = 0;
+
+                const embeddedImage = await pdfDoc.embedJpg(jpgDataUrl);
+                const page = pdfDoc.addPage([embeddedImage.width, embeddedImage.height]);
+                page.drawImage(embeddedImage, {
+                    x: 0, y: 0,
+                    width: embeddedImage.width, height: embeddedImage.height
+                });
+            }
+
+            const bytes = await pdfDoc.save();
+            return new Blob([bytes], { type: 'application/pdf' });
+        };
+    }
+
+    // 4. SAFE OVERRIDE: Wire up the 8 New Genuine Tools
     setTimeout(() => {
         const actionBtn = document.getElementById('actionSubmitBtn');
         if (actionBtn) {
-            // Save the original event listener from script.js
             const originalOnClick = actionBtn.onclick;
 
-            // Define our new overarching click handler
             actionBtn.onclick = async (e) => {
                 const urlParams = new URLSearchParams(window.location.search);
                 const pathMatch = window.location.pathname.match(/\/tools\/([a-z0-9-]+)/i);
                 const toolKey = urlParams.get('tool') || (pathMatch ? pathMatch[1] : null);
 
-                // List of tools that we are handling with our new genuine engines
                 const newGenuineTools = [
                     'ocr', 'word-to-pdf', 'excel-to-pdf', 'pdf-to-ppt', 
                     'ppt-to-pdf', 'protect', 'unlock', 'pdf-to-pdfa'
                 ];
 
-                // If it's NOT one of the new 8 tools, let the original script.js handle it
+                // If NOT an overridden tool, let script.js handle it (like image-to-pdf)
                 if (!newGenuineTools.includes(toolKey)) {
                     if (originalOnClick) {
-                        return originalOnClick.call(actionBtn, e); // Route back to script.js safely
+                        return originalOnClick.call(actionBtn, e);
                     }
                     return;
                 }
 
-                // --- NEW GENUINE ENGINE LOGIC STARTS HERE ---
                 e.preventDefault();
                 const fileInput = document.getElementById('fileInput');
                 if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
@@ -125,5 +192,5 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
         }
-    }, 500); // 500ms delay ensures script.js loads first
+    }, 500); 
 });
