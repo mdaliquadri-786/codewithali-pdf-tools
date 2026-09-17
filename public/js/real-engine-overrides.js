@@ -32,7 +32,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (TOOLS['ppt-to-pdf']) TOOLS['ppt-to-pdf'].accept = '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation';
     }
 
-    // 3. IMAGE TO PDF CRASH FIX (Progressive JPEG / Canvas Fix)
+    // 3. INJECT INDUSTRIAL EXPORT OPTIONS FOR AI SUMMARIZE
+    setTimeout(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const pathMatch = window.location.pathname.match(/\/tools\/([a-z0-9-]+)/i);
+        const toolKey = urlParams.get('tool') || (pathMatch ? pathMatch[1] : null);
+
+        if (toolKey === 'ai-summarize') {
+            const container = document.getElementById('dynamicOptionsContainer');
+            if (container && !document.getElementById('exportFormatGroup')) {
+                container.innerHTML += `
+                    <div class="option-group" id="exportFormatGroup" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                        <label class="option-label">Export Format</label>
+                        <select id="aiExportFormat" class="option-select">
+                            <option value="pdf" selected>PDF Document (.pdf)</option>
+                            <option value="docx">Word Document (.docx)</option>
+                            <option value="txt">Plain Text (.txt)</option>
+                        </select>
+                    </div>
+                `;
+            }
+        }
+    }, 200); // Small delay to let script.js render the base options first
+
+    // 4. IMAGE TO PDF CRASH FIX (Progressive JPEG / Canvas Fix)
     if (typeof Engine1_PDFLib !== 'undefined') {
         Engine1_PDFLib.imageToPDF = async function(files) {
             const { PDFDocument } = await this.ensureLibrary();
@@ -81,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return fullText;
     }
 
-    // 4. SAFE OVERRIDE: Wire up Genuine Tools + AI Summarize + Extract Text
+    // 5. SAFE OVERRIDE: Wire up Genuine Tools + AI Summarize + Extract Text
     setTimeout(() => {
         const actionBtn = document.getElementById('actionSubmitBtn');
         if (actionBtn) {
@@ -171,10 +194,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_PDFA.pdf`;
                     }
                     
-                    // --- SMART AI SUMMARIZE (Gemini 1.5 Flash) ---
+                    // --- SMART AI SUMMARIZE (Gemini 1.5 Flash + Export Options) ---
                     else if (toolKey === 'ai-summarize') {
-                        // Hardcoded API Key from your Google AI Studio
-                        const apiKey = "AQ.Ab8RN6I-kYxExRTPEP324aw2CCCvDauHJqK-B-fI6h2P09nHqQ";
+                        const apiKey = "AQ.Ab8RN6I-kYxExRTPEP324aw2CCCvDauHJqK-B-fI6h2P09nHqQ"; // Free Tier Key
 
                         const base64PDF = await new Promise((resolve, reject) => {
                             const reader = new FileReader();
@@ -188,9 +210,39 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
 
                         const mode = document.querySelector('input[name="aiSummaryMode"]:checked')?.value || 'executive';
+                        
+                        // Strict Professional Prompt formatted in Markdown
                         const promptText = mode === 'deep' 
-                            ? "Provide a comprehensive, in-depth summary of this document. Extract all major themes, key arguments, and important data points. If the document is in Arabic or Urdu, you MUST reply in that exact same language with perfect, natural grammar."
-                            : "Provide a concise executive summary of this document in 5 to 7 bullet points. Highlight only the most critical information. If the document is in Arabic or Urdu, you MUST reply in that exact same language with perfect grammar.";
+                            ? `You are a Senior Executive Analyst. Analyze the attached document and provide a highly professional, comprehensive analytical report. Format your response STRICTLY in clean Markdown using '#' for main headers and '-' for bullet points.
+                            
+                            # EXECUTIVE OVERVIEW
+                            (Provide a 3-sentence high-level summary)
+                            
+                            ## CORE THEMES & ARGUMENTS
+                            - (Detailed point 1)
+                            - (Detailed point 2)
+                            
+                            ## CRITICAL DATA & FINDINGS
+                            - (Extract any important facts, dates, or metrics)
+                            
+                            ## CONCLUSION
+                            (Final analytical takeaway)
+                            
+                            Maintain a strictly formal, objective tone. If the document is in Arabic or Urdu, you MUST reply in highly formal, literary language matching this exact markdown structure.`
+                            
+                            : `You are a Senior Executive Analyst. Analyze the attached document and provide a crisp, highly professional Executive Summary. Format your response STRICTLY in clean Markdown using '#' for main headers and '-' for bullet points.
+                            
+                            # CORE SUBJECT
+                            (1 concise sentence explaining what this document is)
+                            
+                            ## KEY HIGHLIGHTS
+                            - (Highlight 1)
+                            - (Highlight 2)
+                            - (Highlight 3)
+                            - (Highlight 4)
+                            - (Highlight 5)
+                            
+                            Maintain a strictly formal, objective, and corporate tone. If the document is in Arabic or Urdu, use highly formal language with perfect grammar matching this exact markdown structure.`;
 
                         const payload = {
                             contents: [{
@@ -214,17 +266,37 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         const aiText = data.candidates[0].content.parts[0].text;
-                        const aiContent = `=== SMART AI SUMMARY ===\nFile: ${file.name}\n\n${aiText}`;
+                        const exportFormat = document.getElementById('aiExportFormat')?.value || 'pdf';
+
+                        // EXPORT LOGIC (PDF, DOCX, TXT)
+                        if (exportFormat === 'pdf' && window.Engine1_PDFLib && window.Engine1_PDFLib.markdownToPDF) {
+                            // Uses your existing Markdown-to-PDF engine
+                            const reportTitle = `# CodeWithAli AI Intelligence Report\n**Source File:** ${file.name}\n\n---\n\n`;
+                            resultBlob = await window.Engine1_PDFLib.markdownToPDF(reportTitle + aiText);
+                            downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_AI_Report.pdf`;
+                        } 
+                        else if (exportFormat === 'docx' && window.OOXMLBuilder) {
+                            // Uses your existing OOXMLBuilder for DOCX
+                            const paragraphs = aiText.split('\n').filter(p => p.trim());
+                            paragraphs.unshift(`Source File: ${file.name}`);
+                            paragraphs.unshift("CodeWithAli AI Intelligence Report");
+                            resultBlob = window.OOXMLBuilder.buildDocx(paragraphs, "AI Summary Report");
+                            downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_AI_Report.docx`;
+                        } 
+                        else {
+                            // Plain Text Fallback
+                            const aiContent = `=== CODEWITHALI AI INTELLIGENCE REPORT ===\nFile: ${file.name}\n\n${aiText}`;
+                            resultBlob = new Blob(['\ufeff', aiContent], { type: 'text/plain;charset=utf-8' });
+                            downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_AI_Report.txt`;
+                        }
                         
-                        resultBlob = new Blob(['\ufeff', aiContent], { type: 'text/plain;charset=utf-8' });
-                        downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Smart_Summary.txt`;
-                        
+                        // Show output directly in the UI Box so user can read it instantly
                         const qnaBox = document.getElementById('aiQnaBox');
                         const qnaResults = document.getElementById('aiQnaResults');
                         if (qnaBox && qnaResults) {
                             qnaBox.style.display = 'block';
                             qnaResults.dir = "auto"; 
-                            qnaResults.innerHTML = `<div style="padding: 15px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap; color: var(--text-primary); text-align: start; direction: auto;">${aiContent}</div>`;
+                            qnaResults.innerHTML = `<div style="padding: 15px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap; color: var(--text-primary); text-align: start; direction: auto;">${aiText}</div>`;
                         }
                     }
 
@@ -268,5 +340,5 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
         }
-    }, 500); 
+    }, 600); 
 });
