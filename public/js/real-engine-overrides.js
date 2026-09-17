@@ -76,6 +76,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.pdf`;
                 }
+                    else if (toolKey === 'protect' && window.RealSecurityEngine) {
+                    const pass = document.getElementById('pdfPass')?.value;
+                    resultBlob = await window.RealSecurityEngine.protect(file, pass);
+                    downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Protected.pdf`;
+                }
+
+                else if (toolKey === 'unlock' && window.RealSecurityEngine) {
+                    // Tumhare original UI me unlock ke liye password input nahi tha, 
+                    // isliye hum safely browser ka native prompt use kar rahe hain:
+                    const pass = prompt("Enter the password to decrypt this PDF:");
+                    if (!pass) throw new Error("Operation cancelled. Password is required.");
+                    resultBlob = await window.RealSecurityEngine.unlock(file, pass);
+                    downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Unlocked.pdf`;
+                }
+
+                else if (toolKey === 'pdf-to-pdfa' && window.RealPDFAEngine) {
+                    resultBlob = await window.RealPDFAEngine.convert(file);
+                    downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_PDFA.pdf`;
+                }
                 
                 else {
                     // If it's not one of our new 5 tools, trigger the old script.js logic manually
