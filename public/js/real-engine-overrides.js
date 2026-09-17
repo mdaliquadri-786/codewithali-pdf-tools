@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
         }
-    }, 200); // Small delay to let script.js render the base options first
+    }, 200);
 
     // 4. IMAGE TO PDF CRASH FIX (Progressive JPEG / Canvas Fix)
     if (typeof Engine1_PDFLib !== 'undefined') {
@@ -196,7 +196,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // --- SMART AI SUMMARIZE (Gemini 1.5 Flash + Export Options) ---
                     else if (toolKey === 'ai-summarize') {
-                        const apiKey = "AQ.Ab8RN6I-kYxExRTPEP324aw2CCCvDauHJqK-B-fI6h2P09nHqQ"; // Free Tier Key
+                        
+                        // Smart Key Retrieval & Validation
+                        let apiKey = localStorage.getItem('cwa_gemini_key');
+                        if (!apiKey || !apiKey.startsWith('AIza')) {
+                            apiKey = prompt("Please enter a valid Google Gemini API Key.\n\n(It MUST start with 'AIza...'. Get one for free at aistudio.google.com/app/apikey):");
+                            if (!apiKey) throw new Error("Operation cancelled. API Key is required.");
+                            localStorage.setItem('cwa_gemini_key', apiKey.trim());
+                        }
 
                         const base64PDF = await new Promise((resolve, reject) => {
                             const reader = new FileReader();
@@ -211,7 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         const mode = document.querySelector('input[name="aiSummaryMode"]:checked')?.value || 'executive';
                         
-                        // Strict Professional Prompt formatted in Markdown
                         const promptText = mode === 'deep' 
                             ? `You are a Senior Executive Analyst. Analyze the attached document and provide a highly professional, comprehensive analytical report. Format your response STRICTLY in clean Markdown using '#' for main headers and '-' for bullet points.
                             
@@ -253,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }]
                         };
 
-                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -261,7 +267,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         const data = await response.json();
                         
+                        // Auto-correct bad keys
                         if (!response.ok) {
+                            if (data.error && (data.error.message.includes("API key not valid") || data.error.message.includes("authentication"))) {
+                                localStorage.removeItem('cwa_gemini_key');
+                                throw new Error("Invalid API Key! Your key has been cleared. Please click 'Process Document' again and enter a real key starting with 'AIza'.");
+                            }
                             throw new Error(data.error?.message || "AI API Error.");
                         }
 
@@ -270,13 +281,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         // EXPORT LOGIC (PDF, DOCX, TXT)
                         if (exportFormat === 'pdf' && window.Engine1_PDFLib && window.Engine1_PDFLib.markdownToPDF) {
-                            // Uses your existing Markdown-to-PDF engine
                             const reportTitle = `# CodeWithAli AI Intelligence Report\n**Source File:** ${file.name}\n\n---\n\n`;
                             resultBlob = await window.Engine1_PDFLib.markdownToPDF(reportTitle + aiText);
                             downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_AI_Report.pdf`;
                         } 
                         else if (exportFormat === 'docx' && window.OOXMLBuilder) {
-                            // Uses your existing OOXMLBuilder for DOCX
                             const paragraphs = aiText.split('\n').filter(p => p.trim());
                             paragraphs.unshift(`Source File: ${file.name}`);
                             paragraphs.unshift("CodeWithAli AI Intelligence Report");
@@ -284,13 +293,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_AI_Report.docx`;
                         } 
                         else {
-                            // Plain Text Fallback
                             const aiContent = `=== CODEWITHALI AI INTELLIGENCE REPORT ===\nFile: ${file.name}\n\n${aiText}`;
                             resultBlob = new Blob(['\ufeff', aiContent], { type: 'text/plain;charset=utf-8' });
                             downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_AI_Report.txt`;
                         }
                         
-                        // Show output directly in the UI Box so user can read it instantly
                         const qnaBox = document.getElementById('aiQnaBox');
                         const qnaResults = document.getElementById('aiQnaResults');
                         if (qnaBox && qnaResults) {
