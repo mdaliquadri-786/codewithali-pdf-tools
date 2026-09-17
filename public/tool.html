@@ -185,8 +185,6 @@
             <!-- Dynamically populated page canvas cards -->
           </div>
         </div>
-
-        <!-- Extracted Text Result Display (For Extract Text tool) -->
         
         <!-- Base64 Direct Output/Input Container -->
         <div id="base64Box" style="display: none; margin-top: 24px;">
@@ -269,9 +267,6 @@
           <span>Savings</span>
         </div>
       </div>
-
-      
-      <!-- OCR / Text Live Viewer -->
       
       <!-- Document Properties & Metadata Inspector Box -->
       <div id="metadataOutputBox" style="display: none; margin: 20px 0; text-align: left;">
@@ -282,7 +277,6 @@
           <!-- Populated by script.js -->
         </div>
       </div>
-
       
       <!-- Interactive AI Document Q&A / Ask PDF Box -->
       <div id="aiQnaBox" style="display: none; margin: 24px 0; text-align: left;">
@@ -348,7 +342,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script>window.PDFLib || document.write('<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>')</script>
   
-  <!-- The 5 New Genuine Tool Engine Libraries -->
+  <!-- The New Genuine Tool Engine Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -361,17 +355,19 @@
   <script src="js/firebase-config.js"></script>
   <script src="js/script.js"></script>
   
-  <!-- The 5 New Engine Files -->
+  <!-- All 7 New Engine Files -->
   <script src="js/ocr-engine.js"></script>
   <script src="js/word-to-pdf.js"></script>
   <script src="js/excel-to-pdf.js"></script>
   <script src="js/pdf-to-ppt.js"></script>
   <script src="js/ppt-to-pdf.js"></script>
+  <script src="js/security-engine.js"></script>
+  <script src="js/pdfa-engine.js"></script>
 
   <!-- The Master Override File (Must load LAST) -->
   <script src="js/real-engine-overrides.js"></script>
 
-  <!-- Service Worker Registration for 100% Offline Capability -->
+  <!-- Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -381,7 +377,7 @@
       });
     }
   </script>
-  <!-- Floating Quick Capabilities Sidebar Trigger (HR / Client Evaluation) -->
+  <!-- Floating Quick Capabilities Sidebar Trigger -->
   <button id="quickSpecsToggle" class="quick-specs-toggle" type="button" title="View Live Architecture & Offline Status">
     <i class="fa-solid fa-microchip"></i>
     <span class="specs-badge">Pro</span>
@@ -396,7 +392,6 @@
       <button id="closeSpecsDrawerBtn" class="specs-close-btn" type="button"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="specs-drawer-body">
-      <!-- Live Offline / Online Monitor -->
       <div class="live-network-card" id="networkStatusCard">
         <div class="network-status-indicator online" id="networkIndicatorDot"></div>
         <div>
@@ -404,8 +399,6 @@
           <p id="networkStatusDesc" style="font-size: 0.78rem; color: var(--text-muted); margin: 0;">Service Worker active. Turn off Wi-Fi to test!</p>
         </div>
       </div>
-
-      <!-- Core Capabilities Breakdown -->
       <ul class="specs-list">
         <li>
           <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i>
@@ -414,36 +407,7 @@
             <span>Zero server round-trips. Your confidential files never touch cloud storage.</span>
           </div>
         </li>
-        <li>
-          <i class="fa-solid fa-wifi" style="color: #2563eb;"></i>
-          <div>
-            <strong>True Offline Functionality</strong>
-            <span>Core client-side tools operate locally in browser memory without an internet connection.</span>
-          </div>
-        </li>
-        <li>
-          <i class="fa-solid fa-language" style="color: #8b5cf6;"></i>
-          <div>
-            <strong>Native Urdu, Arabic & Telugu</strong>
-            <span>BiDi un-reverser + Amiri & Nirmala UI font shaping engines.</span>
-          </div>
-        </li>
-        <li>
-          <i class="fa-solid fa-gauge-high" style="color: #f59e0b;"></i>
-          <div>
-            <strong>Concurrency-Throttled</strong>
-            <span>2-worker rendering pool prevents browser freezes on 100+ page docs.</span>
-          </div>
-        </li>
-        <li>
-          <i class="fa-solid fa-infinity" style="color: #e5322d;"></i>
-          <div>
-            <strong>No Paywalls & Zero Registration</strong>
-            <span>Free open access, no cloud storage limits, no registration required.</span>
-          </div>
-        </li>
       </ul>
-
       <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); text-align: center;">
         <a href="why-us.html" class="cta-btn-sm" style="display: block; text-align: center; padding: 10px 16px; text-decoration: none;">
           Full Architecture Report <i class="fa-solid fa-arrow-right"></i>
