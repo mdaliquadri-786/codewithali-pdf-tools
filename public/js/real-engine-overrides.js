@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // 0. GLOBAL UI BUG FIX: Fix the broken download button ID from the original script
+    const dlBtn = document.getElementById('downloadBtn');
+    if (dlBtn) {
+        dlBtn.id = 'downloadResultBtn'; // Now script.js will find it and attach the PDF successfully!
+    }
+
     // 1. INJECT CSS FIX: Stop long file names from overlapping cards
     const style = document.createElement('style');
     style.innerHTML = `
@@ -36,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. IMAGE TO PDF CRASH FIX: 
-    // Replaces original Engine1_PDFLib image engine with a Canvas Rasterizer to handle Progressive JPEGs & WebP effortlessly.
+    // Handles Progressive JPEGs & WebP effortlessly via Canvas.
     if (typeof Engine1_PDFLib !== 'undefined') {
         Engine1_PDFLib.imageToPDF = async function(files) {
             const { PDFDocument } = await this.ensureLibrary();
@@ -45,7 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 
-                // Load image into browser safely
                 const imgBitmap = await new Promise((resolve, reject) => {
                     const img = new Image();
                     const url = URL.createObjectURL(file);
@@ -54,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     img.src = url;
                 });
 
-                // Canvas normalization eliminates all format crashes
                 const canvas = document.createElement('canvas');
                 canvas.width = imgBitmap.naturalWidth || imgBitmap.width;
                 canvas.height = imgBitmap.naturalHeight || imgBitmap.height;
@@ -179,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('workspaceBody').style.display = 'none';
                     document.getElementById('resultCard').style.display = 'block';
                     
-                    const dBtn = document.getElementById('downloadBtn') || document.getElementById('downloadResultBtn');
+                    const dBtn = document.getElementById('downloadResultBtn') || document.getElementById('downloadBtn');
                     if (dBtn) {
                         dBtn.href = url;
                         dBtn.download = downloadFilename;
