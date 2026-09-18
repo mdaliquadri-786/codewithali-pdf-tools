@@ -1938,3 +1938,67 @@ input, select, textarea {
     display: none;
   }
 }
+
+/* ==========================================================================
+   Industry Polish Layer (2026 audit) — motion tokens, a11y, fluid type
+   ========================================================================== */
+:root {
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 20px; --radius-full: 999px;
+  --transition-fast: 140ms; --transition-base: 220ms;
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --focus-ring: 0 0 0 3px rgba(229, 50, 45, 0.30);
+  --space-section: clamp(48px, 8vw, 104px);
+}
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+img, svg, video { max-width: 100%; height: auto; }
+
+/* Keyboard-visible focus ring (WCAG 2.4.7) */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* Consistent micro-interactions */
+.btn, .tool-card, .option-select, .option-input, .nav-link, button, a {
+  transition:
+    transform var(--transition-fast) var(--ease-out-soft),
+    box-shadow var(--transition-base) var(--ease-out-soft),
+    border-color var(--transition-fast) var(--ease-out-soft),
+    background-color var(--transition-fast) var(--ease-out-soft),
+    color var(--transition-fast) var(--ease-out-soft);
+}
+.btn:active, button:active { transform: scale(0.97); }
+.tool-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+
+/* Skip link (a11y) */
+.skip-link {
+  position: absolute; left: -999px; top: 0; z-index: 10001;
+  background: var(--primary); color: #fff; font-weight: 600;
+  padding: 10px 18px; border-radius: 0 0 var(--radius-md) 0;
+}
+.skip-link:focus { left: 0; }
+
+/* Reduced motion (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Small-screen hardening */
+@media (max-width: 480px) {
+  .container { padding: 0 16px; }
+  h1 { font-size: clamp(1.6rem, 7vw, 2.2rem); line-height: 1.2; }
+  .tool-card { padding: 18px; }
+}

@@ -55,6 +55,44 @@ function generateOutputName(prefix, ext = '.pdf') {
   return `${prefix}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
 }
 
+// PDF upload validation: severe-case testing showed corrupt / zero-byte /
+// fake (text-renamed-to-.pdf) files sailed through and returned success:true
+// or leaked raw engine errors. Validate the magic header up-front.
+let PDFLib;
+try { PDFLib = require('pdf-lib'); } catch (e) { PDFLib = null; }
+
+async function validatePdfUpload(file) {
+  if (!file) return null; // missing-file case handled per-route with its own message
+  if (file.size === 0) return 'The uploaded file is empty.';
+  let buf;
+  try {
+    const fd = fs.openSync(file.path, 'r');
+    buf = Buffer.alloc(1024);
+    fs.readSync(fd, buf, 0, 1024, 0);
+    fs.closeSync(fd);
+  } catch (e) {
+    return 'Could not read the uploaded file. Please try again.';
+  }
+  // Layer 1: magic header (cheap rejection of non-PDF uploads)
+  if (!buf.subarray(0, 1024).toString('latin1').includes('%PDF-')) {
+    return `"${file.originalname}" is not a valid PDF file. Please upload a genuine PDF document.`;
+  }
+  // Layer 2: structural parse — catches truncated/corrupt files that keep a
+  // valid header but fail real parsing (severe-test finding: corrupt.pdf
+  // passed the magic check and returned success:true / leaked engine errors)
+  if (PDFLib && PDFLib.PDFDocument) {
+    try {
+      const parsed = await PDFLib.PDFDocument.load(fs.readFileSync(file.path), { ignoreEncryption: true });
+      if (parsed.getPageCount() === 0) {
+        return `"${file.originalname}" contains no readable pages. Please re-export or repair the PDF and try again.`;
+      }
+    } catch (e) {
+      return `"${file.originalname}" appears to be corrupted or incomplete and could not be parsed. Please re-export or repair the PDF and try again.`;
+    }
+  }
+  return null;
+}
+
 // -----------------------------------------------------------------------------
 // 1. MERGE PDF (POST /api/pdf/merge)
 // -----------------------------------------------------------------------------
@@ -63,6 +101,11 @@ router.post('/merge', upload.array('files', 20), async (req, res) => {
     const files = req.files || [];
     if (files.length < 2) {
       return res.status(400).json({ error: 'Please upload at least 2 PDF files to merge.' });
+    }
+
+    for (const f of files) {
+      const validationError = await validatePdfUpload(f);
+      if (validationError) return res.status(400).json({ error: validationError });
     }
 
     let orderedFiles = files;
@@ -101,7 +144,7 @@ router.post('/merge', upload.array('files', 20), async (req, res) => {
     });
   } catch (error) {
     console.error('Merge error:', error);
-    res.status(500).json({ error: error.message || 'Failed to merge PDFs.' });
+    res.status(400).json({ error: 'Merge failed. One or more files may be corrupted or not valid PDFs. Please check the files and try again.' });
   }
 });
 
@@ -111,6 +154,8 @@ router.post('/merge', upload.array('files', 20), async (req, res) => {
 router.post('/split', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
+    const pdfValidationError = await validatePdfUpload(file);
+    if (pdfValidationError) return res.status(400).json({ error: pdfValidationError });
     if (!file) {
       return res.status(400).json({ error: 'Please upload a PDF file to split.' });
     }
@@ -131,7 +176,7 @@ router.post('/split', upload.single('file'), async (req, res) => {
     });
   } catch (error) {
     console.error('Split error:', error);
-    res.status(500).json({ error: error.message || 'Failed to split PDF.' });
+    res.status(500).json({ error: 'Split failed. The file may be corrupted or not a valid PDF. Please check the file and try again.' });
   }
 });
 
@@ -141,11 +186,20 @@ router.post('/split', upload.single('file'), async (req, res) => {
 router.post('/compress', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
+    const pdfValidationError = await validatePdfUpload(file);
+    if (pdfValidationError) return res.status(400).json({ error: pdfValidationError });
     if (!file) {
       return res.status(400).json({ error: 'Please upload a PDF file to compress.' });
     }
 
     const level = req.body.level || 'recommended'; // 'extreme', 'recommended', 'low'
+
+    // Encrypted PDFs silently pass through compression unchanged — reject with
+    // an honest, actionable message instead of fake success.
+    if (await pdfHelper.isPdfEncrypted(file.path)) {
+      return res.status(400).json({ error: 'This PDF is password-protected. Use the Unlock PDF tool first, then compress it.' });
+    }
+
     const outFilename = generateOutputName('compressed');
     const outputPath = path.join(OUTPUTS_DIR, outFilename);
 
@@ -204,6 +258,8 @@ router.post('/image-to-pdf', upload.array('files', 50), async (req, res) => {
 router.post('/watermark', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
+    const pdfValidationError = await validatePdfUpload(file);
+    if (pdfValidationError) return res.status(400).json({ error: pdfValidationError });
     if (!file) {
       return res.status(400).json({ error: 'Please upload a PDF file to watermark.' });
     }
@@ -227,7 +283,7 @@ router.post('/watermark', upload.single('file'), async (req, res) => {
     });
   } catch (error) {
     console.error('Watermark error:', error);
-    res.status(500).json({ error: error.message || 'Failed to add watermark.' });
+    res.status(500).json({ error: 'Watermark failed. The file may be corrupted or not a valid PDF. Please check the file and try again.' });
   }
 });
 
@@ -237,6 +293,8 @@ router.post('/watermark', upload.single('file'), async (req, res) => {
 router.post('/rotate', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
+    const pdfValidationError = await validatePdfUpload(file);
+    if (pdfValidationError) return res.status(400).json({ error: pdfValidationError });
     if (!file) return res.status(400).json({ error: 'Please upload a PDF file.' });
 
     const angle = parseInt(req.body.angle, 10) || 90;
@@ -252,7 +310,7 @@ router.post('/rotate', upload.single('file'), async (req, res) => {
       filename: `CodeWithAli_Rotated.pdf`
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Processing failed. The file may be corrupted, password-protected, or in an unsupported format. Please verify the file and try again.' });
   }
 });
 
@@ -262,6 +320,8 @@ router.post('/rotate', upload.single('file'), async (req, res) => {
 router.post('/page-numbers', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
+    const pdfValidationError = await validatePdfUpload(file);
+    if (pdfValidationError) return res.status(400).json({ error: pdfValidationError });
     if (!file) return res.status(400).json({ error: 'Please upload a PDF file.' });
 
     const format = req.body.format || 'Page {n} of {total}';
@@ -278,7 +338,7 @@ router.post('/page-numbers', upload.single('file'), async (req, res) => {
       filename: `CodeWithAli_Numbered.pdf`
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Processing failed. The file may be corrupted, password-protected, or in an unsupported format. Please verify the file and try again.' });
   }
 });
 
@@ -288,6 +348,8 @@ router.post('/page-numbers', upload.single('file'), async (req, res) => {
 router.post('/extract-text', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
+    const pdfValidationError = await validatePdfUpload(file);
+    if (pdfValidationError) return res.status(400).json({ error: pdfValidationError });
     if (!file) return res.status(400).json({ error: 'Please upload a PDF file.' });
 
     const result = await pdfHelper.extractText(file.path);
@@ -297,7 +359,7 @@ router.post('/extract-text', upload.single('file'), async (req, res) => {
       pageCount: result.page_count
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Processing failed. The file may be corrupted, password-protected, or in an unsupported format. Please verify the file and try again.' });
   }
 });
 
@@ -323,7 +385,7 @@ router.post('/markdown-to-pdf', (req, res, next) => {
       filename: 'CodeWithAli_Document.pdf'
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Processing failed. The file may be corrupted, password-protected, or in an unsupported format. Please verify the file and try again.' });
   }
 });
 
@@ -334,6 +396,8 @@ router.post('/markdown-to-pdf', (req, res, next) => {
 router.post('/pdf-to-word', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
+    const pdfValidationError = await validatePdfUpload(file);
+    if (pdfValidationError) return res.status(400).json({ error: pdfValidationError });
     if (!file) return res.status(400).json({ error: 'Please upload a PDF file.' });
 
     const baseName = path.basename(file.originalname, path.extname(file.originalname));
@@ -350,7 +414,7 @@ router.post('/pdf-to-word', upload.single('file'), async (req, res) => {
     });
   } catch (error) {
     console.error('PDF to Word conversion error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Processing failed. The file may be corrupted, password-protected, or in an unsupported format. Please verify the file and try again.' });
   }
 });
 

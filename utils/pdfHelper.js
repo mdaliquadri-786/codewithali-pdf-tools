@@ -82,6 +82,16 @@ function runPythonEngine(cmd, payload) {
   }
 }
 
+async function isPdfEncrypted(filePath) {
+  if (!PDFLib || !PDFLib.PDFDocument) return false;
+  try {
+    const doc = await PDFLib.PDFDocument.load(fs.readFileSync(filePath), { ignoreEncryption: true });
+    return !!doc.isEncrypted || fs.readFileSync(filePath).toString('latin1').includes('/Encrypt');
+  } catch (e) {
+    return false;
+  }
+}
+
 async function mergePDFs(filePaths, outputPath) {
   if (PDFLib && PDFLib.PDFDocument) {
     try {
@@ -540,5 +550,6 @@ module.exports = {
   rotatePDF,
   addPageNumbers,
   extractText,
-  markdownToPDF
+  markdownToPDF,
+  isPdfEncrypted
 };
