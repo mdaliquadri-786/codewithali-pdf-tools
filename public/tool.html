@@ -341,9 +341,22 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script>window.PDFLib || document.write('<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>')</script>
+  <script>
+    /* Real PDF encryption/decryption support: stock pdf-lib has NO encrypt()
+       API, so the Protect/Unlock tools silently produced unprotected files.
+       The @cantoo/pdf-lib fork keeps the same API and adds real AES encryption.
+       It replaces window.PDFLib once loaded. */
+    (function () {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@cantoo/pdf-lib@2.11.1/dist/pdf-lib.min.js';
+      s.onload = function () { window.PDFLibPlus = window.PDFLib; };
+      s.onerror = function () { console.warn('Encryption engine (@cantoo/pdf-lib) failed to load — Protect/Unlock will show a clear error.'); };
+      document.head.appendChild(s);
+    })();
+  </script>
   
   <!-- The New Genuine Tool Engine Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>

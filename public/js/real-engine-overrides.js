@@ -25,11 +25,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.head.appendChild(style);
 
     // 2. WIDEN ACCEPTED FILES dynamically
-    if (window.TOOLS) {
-        if (TOOLS['word-to-pdf']) TOOLS['word-to-pdf'].accept = '.doc,.docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-        if (TOOLS['excel-to-pdf']) TOOLS['excel-to-pdf'].accept = '.xlsx,.xls,.csv';
-        if (TOOLS['pdf-to-ppt']) TOOLS['pdf-to-ppt'].accept = '.pdf,application/pdf';
-        if (TOOLS['ppt-to-pdf']) TOOLS['ppt-to-pdf'].accept = '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    // NOTE: TOOLS is a const-declared top-level binding in script.js — it is
+    // NOT a property of window, so "if (window.TOOLS)" never matched and this
+    // whole branch silently never ran.
+    const TOOLS_REGISTRY = (typeof TOOLS !== 'undefined') ? TOOLS : (window.TOOLS || null);
+    if (TOOLS_REGISTRY) {
+        if (TOOLS_REGISTRY['word-to-pdf']) TOOLS_REGISTRY['word-to-pdf'].accept = '.doc,.docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        if (TOOLS_REGISTRY['excel-to-pdf']) TOOLS_REGISTRY['excel-to-pdf'].accept = '.xlsx,.xls,.csv';
+        if (TOOLS_REGISTRY['pdf-to-ppt']) TOOLS_REGISTRY['pdf-to-ppt'].accept = '.pdf,application/pdf';
+        if (TOOLS_REGISTRY['ppt-to-pdf']) TOOLS_REGISTRY['ppt-to-pdf'].accept = '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation';
     }
 
     // 3. INJECT INDUSTRIAL EXPORT OPTIONS FOR AI SUMMARIZE
@@ -55,9 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 200);
 
-    // 4. IMAGE TO PDF CRASH FIX
-    if (typeof Engine1_PDFLib !== 'undefined') {
-        Engine1_PDFLib.imageToPDF = async function(files) {
+    // 4. IMAGE TO PDF CRASH FIX (Engine1_PDFLib is also a lexical global, not
+    // a window property — reference it directly)
+    const Engine1 = (typeof Engine1_PDFLib !== 'undefined') ? Engine1_PDFLib : window.Engine1_PDFLib;
+    if (Engine1) {
+        Engine1.imageToPDF = async function(files) {
             const { PDFDocument } = await this.ensureLibrary();
             const pdfDoc = await PDFDocument.create();
 
@@ -175,16 +181,51 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                         downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.pdf`;
                     }
-                    else if (toolKey === 'protect' && window.RealSecurityEngine) {
+                    else if (toolKey === 'protect') {
+                        if (!window.RealSecurityEngine) throw new Error('Security engine not loaded. Please reload the page and try again.');
                         const pass = document.getElementById('pdfPass')?.value;
                         resultBlob = await window.RealSecurityEngine.protect(file, pass);
                         downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Protected.pdf`;
                     }
-                    else if (toolKey === 'unlock' && window.RealSecurityEngine) {
+                    else if (toolKey === 'unlock') {
+                        if (!window.RealSecurityEngine) throw new Error('Security engine not loaded. Please reload the page and try again.');
                         const pass = prompt("Enter the password to decrypt this PDF:");
                         if (!pass) throw new Error("Operation cancelled. Password is required to unlock.");
                         resultBlob = await window.RealSecurityEngine.unlock(file, pass);
                         downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Unlocked.pdf`;
+                    }
+                    else if (toolKey === 'edit' && Engine1 && Engine1.addTextAnnotation) {
+                        // Real annotation stamping (was an unhandled key that
+                        // fell through to "no output generated").
+                        const noteText = document.getElementById('editNoteText')?.value || 'APPROVED';
+                        const editPos = document.getElementById('editPosition')?.value || 'top-right';
+                        resultBlob = await Engine1.addTextAnnotation(file, noteText, { position: editPos });
+                        downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Annotated.pdf`;
+                    }
+                    else if (toolKey === 'compare') {
+                        // Real text-level comparison of the first two files.
+                        const fileList = fileInput.files;
+                        if (!fileList || fileList.length < 2) throw new Error('Please select exactly 2 PDF files to compare.');
+                        const t1 = await extractTextFromPDF(fileList[0]);
+                        const t2 = await extractTextFromPDF(fileList[1]);
+                        const set1 = new Set(t1.split(/\s+/).filter(Boolean));
+                        const set2 = new Set(t2.split(/\s+/).filter(Boolean));
+                        const union = new Set([...set1, ...set2]);
+                        const only1 = [...set1].filter(w => !set2.has(w)).slice(0, 100);
+                        const only2 = [...set2].filter(w => !set1.has(w)).slice(0, 100);
+                        const similarity = union.size === 0 ? 100 : Math.round((1 - (only1.length + only2.length) / union.size) * 100);
+                        const report = [
+                            '=== PDF COMPARISON REPORT ===',
+                            `File 1: ${fileList[0].name} (${set1.size} unique words)`,
+                            `File 2: ${fileList[1].name} (${set2.size} unique words)`,
+                            `Estimated text similarity: ${similarity}%`, '',
+                            `--- Words only in File 1 (${only1.length} shown) ---`,
+                            only1.join(', ') || '(none)', '',
+                            `--- Words only in File 2 (${only2.length} shown) ---`,
+                            only2.join(', ') || '(none)'
+                        ].join('\n');
+                        resultBlob = new Blob(['\ufeff', report], { type: 'text/plain;charset=utf-8' });
+                        downloadFilename = 'CodeWithAli_Comparison_Report.txt';
                     }
                     else if (toolKey === 'pdf-to-pdfa' && window.RealPDFAEngine) {
                         resultBlob = await window.RealPDFAEngine.convert(file);

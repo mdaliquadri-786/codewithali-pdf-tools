@@ -301,9 +301,9 @@ function multer(options = {}) {
     const ct = req.headers['content-type'] || '';
     if (!ct.includes('multipart/form-data')) return next();
 
-    const match = ct.match(/boundary=([^;]+)/i);
+    const match = ct.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
     if (!match) return next();
-    const boundary = match[1].trim();
+    const boundary = (match[1] || match[2]).trim();
 
     const chunks = [];
     req.on('data', (c) => chunks.push(c));

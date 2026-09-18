@@ -357,10 +357,15 @@ router.post('/pdf-to-word', upload.single('file'), async (req, res) => {
 // DOWNLOAD ENDPOINTS
 // -----------------------------------------------------------------------------
 router.get('/download/:filename', (req, res) => {
-  const filename = req.params.filename;
+  // Path traversal fix: a filename like ..%2F..%2Fserver.js previously escaped
+  // the outputs directory and could serve arbitrary server files.
+  const filename = path.basename(req.params.filename);
+  if (!filename || filename === '.' || filename === '..') {
+    return res.status(400).json({ error: 'Invalid filename.' });
+  }
   const filePath = path.join(OUTPUTS_DIR, filename);
 
-  if (!fs.existsSync(filePath)) {
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
     return res.status(404).send('Processed file not found or expired.');
   }
 
@@ -368,14 +373,31 @@ router.get('/download/:filename', (req, res) => {
 });
 
 router.get('/download-split/:dir/:filename', (req, res) => {
-  const { dir, filename } = req.params;
-  const filePath = path.join(OUTPUTS_DIR, dir, filename);
+  // Path traversal fix (same class of bug as /download)
+  const safeDir = path.basename(req.params.dir);
+  const safeName = path.basename(req.params.filename);
+  if (!safeDir || safeDir === '.' || safeDir === '..' || !safeName || safeName === '.' || safeName === '..') {
+    return res.status(400).json({ error: 'Invalid path.' });
+  }
+  const filePath = path.join(OUTPUTS_DIR, safeDir, safeName);
 
-  if (!fs.existsSync(filePath)) {
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
     return res.status(404).send('Split file not found or expired.');
   }
 
-  res.download(filePath, filename);
+  res.download(filePath, safeName);
+});
+
+// Multer / upload error middleware — previously a >50MB upload crashed into a
+// generic 500 HTML page instead of a clean JSON error.
+router.use((err, req, res, next) => {
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'File exceeds the 50MB per-file upload limit.' });
+  }
+  if (err) {
+    return res.status(400).json({ error: err.message || 'Upload processing error.' });
+  }
+  next();
 });
 
 module.exports = router;

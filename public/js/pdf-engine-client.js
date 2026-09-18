@@ -424,15 +424,17 @@ window.ClientPDFEngine = {
     const compressedBytes = await doc.save({ useObjectStreams: true });
     const blob = new Blob([compressedBytes], { type: 'application/pdf' });
 
+    // Honest size stats based on the REAL output (the old code reported an
+    // invented "0.65 x original" figure regardless of the actual result).
     const origSize = file.size;
-    const newSize = Math.max(Math.round(origSize * 0.65), compressedBytes.length);
-    const saved = Math.max(10, Math.round(((origSize - newSize) / origSize) * 100));
+    const newSize = compressedBytes.length;
+    const saved = origSize > 0 ? Math.round(((origSize - newSize) / origSize) * 100) : 0;
 
     const res = this.downloadBlob(blob, `CodeWithAli_Compressed_${file.name}`);
     res.stats = {
       originalSize: `${(origSize / 1024).toFixed(1)} KB`,
       newSize: `${(newSize / 1024).toFixed(1)} KB`,
-      reduction: `-${saved}%`
+      reduction: `${saved >= 0 ? '' : '+'}${saved}%`
     };
     res.message = 'PDF compressed successfully!';
     return res;

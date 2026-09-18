@@ -11,10 +11,20 @@ import json
 import io
 import zipfile
 import math
-from pypdf import PdfReader, PdfWriter
-from PIL import Image
-from reportlab.pdfgen import canvas
-from reportlab.lib import pagesizes, colors
+
+try:
+    from pypdf import PdfReader, PdfWriter
+except ImportError:
+    print(json.dumps({"error": "Python PDF libraries are not installed. Run: pip install pypdf reportlab python-docx pillow"}))
+    sys.exit(1)
+
+try:
+    from PIL import Image
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import pagesizes, colors
+except ImportError:
+    print(json.dumps({"error": "Python PDF libraries are not installed. Run: pip install pypdf reportlab python-docx pillow"}))
+    sys.exit(1)
 
 def merge_pdfs(input_paths, output_path):
     writer = PdfWriter()

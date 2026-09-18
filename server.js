@@ -109,11 +109,17 @@ if (cleanupTimer.unref) cleanupTimer.unref();
 runStorageCleanup();
 
 app.use((req, res) => {
-  if (req.accepts && req.accepts('html')) {
-    res.status(404).sendFile(path.join(PUBLIC_DIR, 'index.html'));
-  } else {
-    res.status(404).json({ error: 'Endpoint not found' });
+  const requestPath = req.urlPath || req.path || '';
+  if (requestPath.startsWith('/api/')) {
+    return res.status(404).json({ error: 'Endpoint not found' });
   }
+  // SPA fallback: serve the homepage for unknown GET pages. The old check used
+  // req.accepts(), which the zero-dependency fallback server never implements,
+  // so unknown pages got a JSON 404 instead of the app shell.
+  if ((req.method === 'GET' || req.method === 'HEAD') && (typeof req.accepts !== 'function' || req.accepts('html'))) {
+    return res.status(404).sendFile(path.join(PUBLIC_DIR, 'index.html'));
+  }
+  res.status(404).json({ error: 'Endpoint not found' });
 });
 
 if (require.main === module) {

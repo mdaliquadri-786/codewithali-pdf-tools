@@ -552,6 +552,29 @@ const Engine1_PDFLib = {
     return new Blob([bytes], { type: 'application/pdf' });
   },
 
+  // 6b. Add Text Annotation (backs the 'edit' tool — previously that tool had
+  // no handler at all and always failed with "no output generated")
+  async addTextAnnotation(file, text, options = {}) {
+    const { PDFDocument, rgb, StandardFonts } = await this.ensureLibrary();
+    const buffer = await this.readFileAsArrayBuffer(file);
+    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    const font = await doc.embedFont(StandardFonts.HelveticaBold);
+    const size = 14;
+
+    doc.getPages().forEach(page => {
+      const { width, height } = page.getSize();
+      const tw = font.widthOfTextAtSize(text, size);
+      let x = width - tw - 30;
+      let y = height - 40;
+      if (options.position === 'top-center') { x = (width - tw) / 2; y = height - 40; }
+      else if (options.position === 'bottom-center') { x = (width - tw) / 2; y = 30; }
+      page.drawText(text, { x, y, size, font, color: rgb(0.85, 0.15, 0.15), opacity: 0.9 });
+    });
+
+    const bytes = await doc.save();
+    return new Blob([bytes], { type: 'application/pdf' });
+  },
+
   // 7. Compress PDF (Object stream & structure optimization)
   async compressPDF(file) {
     const { PDFDocument } = await this.ensureLibrary();
@@ -2107,7 +2130,12 @@ function initWorkspace() {
         if (titleIn) titleIn.value = doc.getTitle() || '';
         if (authorIn) authorIn.value = doc.getAuthor() || '';
         if (subjectIn) subjectIn.value = doc.getSubject() || '';
-        if (kwIn) kwIn.value = (doc.getKeywords() || []).join(', ');
+        if (kwIn) {
+          // pdf-lib's getKeywords() returns a STRING (or undefined), not an
+          // array — the old .join() call crashed loading the metadata editor.
+          const kwVal = doc.getKeywords();
+          kwIn.value = Array.isArray(kwVal) ? kwVal.join(', ') : (kwVal || '');
+        }
       } catch (e) {
         console.warn('Metadata inspection notice:', e.message);
       }
@@ -2194,17 +2222,20 @@ function initWorkspace() {
         else if (toolKey === 'compress') {
           const level = document.querySelector('input[name="compressionLevel"]:checked')?.value || 'balanced';
           if (level === 'maximum') {
-            // Aggressive raster downsampling for image-heavy PDFs
-            resultBlob = await Engine2_PDFJS.renderPageToJpgBlob(file, 1, 1.2);
-            // Recompile into compact PDF
+            // Aggressive raster downsampling for image-heavy PDFs:
+            // re-render EVERY page to JPEG and rebuild a compact PDF.
+            // (The old code rendered only page 1 and silently discarded
+            // every other page of the document.)
             const { PDFDocument } = await Engine1_PDFLib.ensureLibrary();
             const compDoc = await PDFDocument.create();
-            const imgDataUrl = URL.createObjectURL(resultBlob);
-            const imgBytes = await fetch(imgDataUrl).then(r => r.arrayBuffer());
-            URL.revokeObjectURL(imgDataUrl);
-            const embedded = await compDoc.embedJpg(imgBytes);
-            const page = compDoc.addPage([embedded.width, embedded.height]);
-            page.drawImage(embedded, { x: 0, y: 0, width: embedded.width, height: embedded.height });
+            const pdf = await Engine2_PDFJS.loadDocument(file);
+            for (let p = 1; p <= pdf.numPages; p++) {
+              const jpgBlob = await Engine2_PDFJS.renderPageToJpgBlob(file, p, 1.2);
+              const imgBytes = await jpgBlob.arrayBuffer();
+              const embedded = await compDoc.embedJpg(imgBytes);
+              const page = compDoc.addPage([embedded.width, embedded.height]);
+              page.drawImage(embedded, { x: 0, y: 0, width: embedded.width, height: embedded.height });
+            }
             const finalBytes = await compDoc.save({ useObjectStreams: true });
             resultBlob = new Blob([finalBytes], { type: 'application/pdf' });
           } else {
@@ -2433,8 +2464,12 @@ function hideProcessingOverlay() {
 }
 
 function setProgressBar(pct) {
-  const bar = document.getElementById('progressBar');
+  // tool.html defines #progressBarInner (not #progressBar) — the old lookup
+  // silently missed and the progress bar never moved for in-browser tools.
+  const bar = document.getElementById('progressBar') || document.getElementById('progressBarInner');
   if (bar) bar.style.width = `${pct}%`;
+  const pctText = document.getElementById('progressPercentage');
+  if (pctText && pct >= 100) pctText.innerText = '100%';
 }
 
 function showResultScreen(resData, toolConfig) {

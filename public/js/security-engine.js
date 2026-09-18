@@ -1,13 +1,22 @@
 window.RealSecurityEngine = {
+  hasEncryptionSupport() {
+    // Stock pdf-lib has no encrypt(); only the @cantoo/pdf-lib fork does.
+    return !!(window.PDFLib && window.PDFLib.PDFDocument &&
+              typeof window.PDFLib.PDFDocument.prototype.encrypt === 'function');
+  },
+
   async protect(file, password) {
     if (!password || password.trim() === '') {
       throw new Error("Please enter a valid passphrase to encrypt the PDF.");
     }
-    const { PDFDocument } = await window.PDFLib;
+    if (!this.hasEncryptionSupport()) {
+      throw new Error("Real password encryption requires the @cantoo/pdf-lib engine, which has not loaded yet. Check your internet connection, reload the page, and try again.");
+    }
+    const { PDFDocument } = window.PDFLib;
     const buffer = await file.arrayBuffer();
     const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
 
-    // Native pdf-lib Encryption (AES/RC4 based on standard security handler)
+    // Real AES encryption (AES-256 by default in the fork)
     doc.encrypt({
       userPassword: password,
       ownerPassword: password + "_admin", // Prevents users from bypassing restrictions
@@ -30,18 +39,21 @@ window.RealSecurityEngine = {
     if (!password) {
       throw new Error("Password is required to decrypt this document.");
     }
-    const { PDFDocument } = await window.PDFLib;
+    if (!this.hasEncryptionSupport()) {
+      throw new Error("Real password decryption requires the @cantoo/pdf-lib engine, which has not loaded yet. Check your internet connection, reload the page, and try again.");
+    }
+    const { PDFDocument } = window.PDFLib;
     const buffer = await file.arrayBuffer();
 
     try {
       // Attempt to load WITH the user's password. This performs actual decryption.
       const doc = await PDFDocument.load(buffer, { password: password });
-      
+
       // Saving it without calling doc.encrypt() strips the password and exports a clean PDF.
       const bytes = await doc.save({ useObjectStreams: true });
       return new Blob([bytes], { type: 'application/pdf' });
     } catch (e) {
-      if (e.message.includes('encrypted') || e.message.includes('password')) {
+      if ((e.message || '').toLowerCase().includes('password') || (e.message || '').toLowerCase().includes('encrypt')) {
         throw new Error("Incorrect password! Failed to decrypt the document.");
       }
       throw e;
