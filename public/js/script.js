@@ -828,6 +828,63 @@ const Engine2_PDFJS = {
     });
   },
 
+  // PDF to Excel: was completely unimplemented — every call silently fell
+  // through to the generic fallback, which just re-saved the original PDF
+  // bytes and downloaded THAT as if it were the output (a user reported
+  // "only PDF is downloading not excel"). This reconstructs a real table
+  // per page from PDF.js text-item coordinates: items are clustered into
+  // rows by Y-proximity, then into columns by horizontal gap size, and
+  // written out as an actual .xlsx workbook (one sheet per PDF page) via
+  // SheetJS. It's a heuristic reconstruction (PDF has no native table
+  // model), not a perfect one — but it produces a real, editable spreadsheet
+  // instead of a renamed PDF.
+  async pdfToExcel(file) {
+    if (!window.XLSX) throw new Error('SheetJS (xlsx) library failed to load — cannot build the spreadsheet.');
+    const pdf = await this.loadDocument(file);
+    const wb = window.XLSX.utils.book_new();
+    const Y_TOLERANCE = 3;
+    const X_GAP_THRESHOLD = 10;
+
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const textContent = await page.getTextContent();
+      const items = textContent.items
+        .filter(it => it.str && it.str.trim().length > 0)
+        .map(it => ({ text: it.str, x: it.transform[4], y: it.transform[5], w: it.width || (it.str.length * 4) }));
+
+      const rows = [];
+      for (const it of items) {
+        let row = rows.find(r => Math.abs(r.y - it.y) <= Y_TOLERANCE);
+        if (!row) { row = { y: it.y, items: [] }; rows.push(row); }
+        row.items.push(it);
+      }
+      rows.sort((a, b) => b.y - a.y); // PDF y grows upward -> top row first
+
+      const sheetRows = rows.map(row => {
+        row.items.sort((a, b) => a.x - b.x);
+        const cells = [];
+        let current = '';
+        let lastEnd = null;
+        for (const it of row.items) {
+          if (lastEnd !== null && (it.x - lastEnd) > X_GAP_THRESHOLD) {
+            cells.push(current.trim());
+            current = '';
+          }
+          current += (current ? ' ' : '') + it.text;
+          lastEnd = it.x + it.w;
+        }
+        if (current) cells.push(current.trim());
+        return cells;
+      });
+
+      const ws = window.XLSX.utils.aoa_to_sheet(sheetRows.length ? sheetRows : [['(No extractable text on this page)']]);
+      window.XLSX.utils.book_append_sheet(wb, ws, `Page ${p}`.slice(0, 31));
+    }
+
+    const out = window.XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    return new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  },
+
   // True Pixel-Level Permanent Redaction (Zero Residual Text Layer)
   async renderRedactedPDF(file, redactAreas = []) {
     const { PDFDocument } = await Engine1_PDFLib.ensureLibrary();
@@ -2261,9 +2318,32 @@ function initWorkspace() {
           downloadFilename = 'CodeWithAli_Images.pdf';
         }
         else if (toolKey === 'pdf-to-jpg') {
+          // BUG FIX: this always rendered ONLY page 1 regardless of document
+          // length (a user reported an 83-page PDF producing a single JPG).
+          // Render every page; bundle as a ZIP when there's more than one.
           const scale = parseFloat(document.getElementById('jpgResolution')?.value || '2.0');
-          resultBlob = await Engine2_PDFJS.renderPageToJpgBlob(file, 1, scale);
-          downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Page_1.jpg`;
+          const baseName = file.name.replace(/\.[^/.]+$/, '');
+          const pdfDoc = await Engine2_PDFJS.loadDocument(file);
+          const totalPages = pdfDoc.numPages;
+
+          if (totalPages <= 1) {
+            resultBlob = await Engine2_PDFJS.renderPageToJpgBlob(file, 1, scale);
+            downloadFilename = `${baseName}_Page_1.jpg`;
+          } else {
+            if (!window.JSZip) throw new Error('JSZip library failed to load — cannot bundle multi-page JPG output.');
+            const zip = new window.JSZip();
+            for (let p = 1; p <= totalPages; p++) {
+              const jpgBlob = await Engine2_PDFJS.renderPageToJpgBlob(file, p, scale);
+              zip.file(`${baseName}_Page_${p}.jpg`, jpgBlob);
+              setProgressBar(Math.round((p / totalPages) * 100));
+            }
+            resultBlob = await zip.generateAsync({ type: 'blob' });
+            downloadFilename = `${baseName}_AllPages_JPG.zip`;
+          }
+        }
+        else if (toolKey === 'pdf-to-excel') {
+          resultBlob = await Engine2_PDFJS.pdfToExcel(file);
+          downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.xlsx`;
         }
         else if (toolKey === 'extract-text') {
           if (window.ClientPDFEngine) {
@@ -2376,6 +2456,34 @@ function initWorkspace() {
           resultBlob = await Engine1_PDFLib.pdfToPdfa(file);
           downloadFilename = `PDFA_${file.name}`;
         }
+        // BUG FIX: word-to-pdf, excel-to-pdf, pdf-to-ppt, and ppt-to-pdf
+        // previously had NO case in this main dispatcher at all. They relied
+        // entirely on real-engine-overrides.js successfully intercepting and
+        // replacing this button's click handler at runtime. If that patch
+        // layer ever fails to apply for any reason, these tools silently fell
+        // all the way through to the generic fallback below, which just
+        // re-saves the ORIGINAL file unchanged and downloads it under a new
+        // name — reported symptom: "PDF to PowerPoint not working, just
+        // giving same file with different name." Wiring them here directly
+        // removes the dependency on that fragile runtime patch.
+        else if (toolKey === 'word-to-pdf' && window.RealWordToPDF) {
+          resultBlob = await window.RealWordToPDF.convert(file);
+          downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.pdf`;
+        }
+        else if (toolKey === 'excel-to-pdf' && window.RealExcelToPDF) {
+          resultBlob = await window.RealExcelToPDF.convert(file);
+          downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.pdf`;
+        }
+        else if (toolKey === 'pdf-to-ppt') {
+          if (!window.RealPDFToPPT) throw new Error('PowerPoint export engine not loaded. Please reload the page and try again.');
+          resultBlob = await window.RealPDFToPPT.convert(file, (p) => setProgressBar(Math.round(p)));
+          downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Slides.pptx`;
+        }
+        else if (toolKey === 'ppt-to-pdf') {
+          if (!window.RealPPTToPDF) throw new Error('PowerPoint import engine not loaded. Please reload the page and try again.');
+          resultBlob = await window.RealPPTToPDF.convert(file, (p) => setProgressBar(Math.round(p)));
+          downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.pdf`;
+        }
         else {
           // Standard safe fallback
           if (window.ClientPDFEngine) {
@@ -2453,14 +2561,33 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+let _progressTrickleTimer = null;
+
 function showProcessingOverlay() {
   const overlay = document.getElementById('processingOverlay');
   if (overlay) overlay.style.display = 'flex';
+  // UX FIX: most single-shot tools only ever called setProgressBar(25) then
+  // setProgressBar(100) right at the end, so the bar sat frozen at 25% for
+  // the entire operation then jumped straight to 100% — reported as
+  // "laggy"/"not smooth". Trickle it upward in small steps while real work
+  // is happening, capped below 100 so the real completion call still reads
+  // as the genuine finish rather than a repeat of a already-full bar.
+  if (_progressTrickleTimer) clearInterval(_progressTrickleTimer);
+  _progressTrickleTimer = setInterval(() => {
+    const bar = document.getElementById('progressBar') || document.getElementById('progressBarInner');
+    if (!bar) return;
+    const current = parseFloat(bar.style.width) || 0;
+    if (current < 88) {
+      const step = current < 40 ? 4 : current < 70 ? 2 : 0.6;
+      bar.style.width = `${Math.min(current + step, 88)}%`;
+    }
+  }, 220);
 }
 
 function hideProcessingOverlay() {
   const overlay = document.getElementById('processingOverlay');
   if (overlay) overlay.style.display = 'none';
+  if (_progressTrickleTimer) { clearInterval(_progressTrickleTimer); _progressTrickleTimer = null; }
 }
 
 function setProgressBar(pct) {
@@ -2470,6 +2597,7 @@ function setProgressBar(pct) {
   if (bar) bar.style.width = `${pct}%`;
   const pctText = document.getElementById('progressPercentage');
   if (pctText && pct >= 100) pctText.innerText = '100%';
+  if (pct >= 100 && _progressTrickleTimer) { clearInterval(_progressTrickleTimer); _progressTrickleTimer = null; }
 }
 
 function showResultScreen(resData, toolConfig) {
@@ -2479,10 +2607,22 @@ function showResultScreen(resData, toolConfig) {
   if (workspaceBody) workspaceBody.style.display = 'none';
   if (resultCard) {
     resultCard.style.display = 'block';
-    const downloadBtn = document.getElementById('downloadResultBtn');
+    // BUG FIX: tool.html's actual anchor id is "downloadBtn" — there is no
+    // element with id "downloadResultBtn" anywhere in the DOM. This lookup
+    // always returned null, so the href was NEVER updated from its original
+    // placeholder value of "#". Clicking "Download" therefore downloaded the
+    // current page itself (tool.html) instead of the processed file, for
+    // every single tool that goes through this function — which is most of
+    // them (merge, compress, image-to-pdf, pdf-to-jpg, split, rotate,
+    // watermark, page-numbers, organize, flatten, metadata, base64,
+    // grayscale, invert, redact, extract-images, sign, markdown-to-pdf,
+    // pdf-to-word, repair, edit, compare, and the pdf-to-excel fallback).
+    const downloadBtn = document.getElementById('downloadResultBtn') || document.getElementById('downloadBtn');
     if (downloadBtn) {
       downloadBtn.href = resData.downloadUrl;
       downloadBtn.download = resData.filename;
+    } else {
+      console.error('[CodeWithAli] Download button not found in DOM — cannot set output link.');
     }
 
     const resTitle = document.getElementById('resultTitle');

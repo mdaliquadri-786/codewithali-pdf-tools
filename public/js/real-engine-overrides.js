@@ -304,7 +304,27 @@ document.addEventListener('DOMContentLoaded', () => {
                             throw new Error(data.error?.message || "AI API Error. Your key has been cleared. Please try again.");
                         }
 
-                        const aiText = data.candidates[0].content.parts[0].text;
+                        // BUG FIX: the API can return response.ok === true with no usable
+                        // content — e.g. the request was blocked by Gemini's safety filter,
+                        // or the model returned an empty candidate. The old code went
+                        // straight to data.candidates[0].content.parts[0].text, which threw
+                        // a raw "Cannot read properties of undefined" on those responses
+                        // instead of a clear message — very likely what "gave me this shit"
+                        // was: either that crash, or literal Markdown syntax (**bold**, most
+                        // AI responses use it) rendered as-is because markdownToPDF only
+                        // understands #/##/###/- , not inline bold/italic.
+                        const candidate = data.candidates && data.candidates[0];
+                        const finishReason = candidate && candidate.finishReason;
+                        if (!candidate || !candidate.content || !candidate.content.parts || !candidate.content.parts[0]) {
+                            if (finishReason === 'SAFETY' || finishReason === 'RECITATION') {
+                                throw new Error('The AI declined to summarize this document (content safety filter). Try a different document or export format.');
+                            }
+                            throw new Error('The AI returned an empty response. Please try again, or try "Deep Analysis" / a different export format.');
+                        }
+                        let aiText = candidate.content.parts[0].text;
+                        // Strip inline Markdown emphasis markers the PDF/plain-text renderers
+                        // don't understand, so output doesn't show literal ** and * characters.
+                        aiText = aiText.replace(/\*\*(.+?)\*\*/g, '$1').replace(/(?<!\*)\*(?!\*)(.+?)\*(?!\*)/g, '$1');
                         const exportFormat = document.getElementById('aiExportFormat')?.value || 'pdf';
 
                         if (exportFormat === 'pdf' && window.Engine1_PDFLib && window.Engine1_PDFLib.markdownToPDF) {
