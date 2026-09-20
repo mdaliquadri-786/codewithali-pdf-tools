@@ -11,7 +11,7 @@
   <link rel="icon" type="image/svg+xml" href="/gemini-svg.svg">
 
   <!-- PWA & Mobile Web App Capabilities -->
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#e5322d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -66,7 +66,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   
   <!-- Custom Stylesheet -->
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>
@@ -74,7 +74,7 @@
   <!-- Navigation Bar -->
   <header class="navbar">
     <div class="container nav-container">
-      <a href="index.html" class="brand">
+      <a href="/" class="brand">
         <div class="brand-icon">
           <i class="fa-solid fa-file-pdf"></i>
         </div>
@@ -84,12 +84,12 @@
       </a>
 
       <nav class="nav-menu" id="navMenu">
-        <a href="index.html" class="nav-link active">Home</a>
-        <a href="tool.html?tool=merge" class="nav-link">Merge</a>
-        <a href="tool.html?tool=split" class="nav-link">Split</a>
-        <a href="tool.html?tool=compress" class="nav-link">Compress</a>
-        <a href="tool.html?tool=image-to-pdf" class="nav-link">Convert</a>
-        <a href="why-us.html" class="nav-link">Why CodeWithAli</a>
+        <a href="/" class="nav-link active">Home</a>
+        <a href="/tools/merge" class="nav-link">Merge</a>
+        <a href="/tools/split" class="nav-link">Split</a>
+        <a href="/tools/compress" class="nav-link">Compress</a>
+        <a href="/tools/image-to-pdf" class="nav-link">Convert</a>
+        <a href="/why-us" class="nav-link">Why CodeWithAli</a>
       </nav>
 
       <div class="nav-actions">
@@ -102,7 +102,7 @@
         <button class="nav-toggle" id="navToggle" aria-label="Toggle Menu">
           <i class="fa-solid fa-bars"></i>
         </button>
-        <a href="tool.html?tool=merge" class="cta-btn-sm desktop-only-btn">
+        <a href="/tools/merge" class="cta-btn-sm desktop-only-btn">
           <i class="fa-solid fa-bolt"></i> Get Started
         </a>
       </div>
@@ -181,7 +181,7 @@
             <span>Zero cloud transfer lag, unlimited free forever</span>
           </div>
         </div>
-        <a href="why-us.html" class="cap-learn-btn" title="View Full Technical Architecture & Benchmark Report">
+        <a href="/why-us" class="cap-learn-btn" title="View Full Technical Architecture & Benchmark Report">
           Why CodeWithAli <i class="fa-solid fa-arrow-right"></i>
         </a>
       </div>
@@ -190,21 +190,21 @@
         <!-- Tool cards are rendered dynamically and statically for maximum SEO & instantaneous load -->
 
                 <!-- AI PDF SUMMARIZER & DOCUMENT INTELLIGENCE -->
-        <a href="tool.html?tool=ai-summarize" class="tool-card" data-status="optimized" data-category="exclusive" data-keywords="ai summarize ask pdf chat document insights questions summary nlp executive">
+        <a href="/tools/ai-summarize" class="tool-card" data-status="optimized" data-category="exclusive" data-keywords="ai summarize ask pdf chat document insights questions summary nlp executive gemini cloud">
           <span class="tool-status-tag tag-ready" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(229, 50, 45, 0.15) 100%); color: #7c3aed; border-color: rgba(139, 92, 246, 0.35);"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Powered</span>
           <div class="tool-card-icon icon-purple">
             <i class="fa-solid fa-brain"></i>
           </div>
-          <h3 class="tool-card-title">Local PDF Summarizer (NLP)</h3>
-          <p class="tool-card-desc">Extract instant executive summaries, key action points, and interactively ask questions with 100% on-device private AI.</p>
+          <h3 class="tool-card-title">AI PDF Summarizer (Cloud)</h3>
+          <p class="tool-card-desc">Extract instant executive summaries, key action points, and interactively ask questions using Google Gemini. This tool sends your document's content to Google's servers for processing — unlike every other tool on this site, which runs 100% in your browser.</p>
           <div class="tool-card-footer">
             <span class="tool-card-action">Use Tool <i class="fa-solid fa-arrow-right"></i></span>
-            <span class="tool-card-lang"><i class="fa-solid fa-shield-halved"></i> 100% Private</span>
+            <span class="tool-card-lang"><i class="fa-solid fa-cloud"></i> Cloud AI (Gemini)</span>
           </div>
         </a>
 
         <!-- 1. MERGE PDF -->
-        <a href="tool.html?tool=merge" class="tool-card" data-status="optimized" data-category="organize" data-keywords="merge combine join append pdf pages">
+        <a href="/tools/merge" class="tool-card" data-status="optimized" data-category="organize" data-keywords="merge combine join append pdf pages">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-red">
             <i class="fa-solid fa-object-group"></i>
@@ -218,7 +218,7 @@
         </a>
 
         <!-- 2. SPLIT PDF -->
-        <a href="tool.html?tool=split" class="tool-card" data-status="optimized" data-category="organize" data-keywords="split extract separate pages range divide">
+        <a href="/tools/split" class="tool-card" data-status="optimized" data-category="organize" data-keywords="split extract separate pages range divide">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-red">
             <i class="fa-solid fa-scissors"></i>
@@ -232,7 +232,7 @@
         </a>
 
         <!-- 3. COMPRESS PDF -->
-        <a href="tool.html?tool=compress" class="tool-card" data-status="optimized" data-category="optimize" data-keywords="compress shrink reduce file size optimize mb kb">
+        <a href="/tools/compress" class="tool-card" data-status="optimized" data-category="optimize" data-keywords="compress shrink reduce file size optimize mb kb">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-green">
             <i class="fa-solid fa-compress"></i>
@@ -246,7 +246,7 @@
         </a>
 
         <!-- 4. IMAGE TO PDF -->
-        <a href="tool.html?tool=image-to-pdf" class="tool-card" data-status="optimized" data-category="convert-to" data-keywords="jpg to pdf png to pdf images photos pictures picture">
+        <a href="/tools/image-to-pdf" class="tool-card" data-status="optimized" data-category="convert-to" data-keywords="jpg to pdf png to pdf images photos pictures picture">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-blue">
             <i class="fa-solid fa-file-image"></i>
@@ -260,7 +260,7 @@
         </a>
 
         <!-- 5. ADD WATERMARK -->
-        <a href="tool.html?tool=watermark" class="tool-card" data-status="optimized" data-category="edit" data-keywords="watermark stamp text diagonal opacity confidential logo">
+        <a href="/tools/watermark" class="tool-card" data-status="optimized" data-category="edit" data-keywords="watermark stamp text diagonal opacity confidential logo">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-amber">
             <i class="fa-solid fa-stamp"></i>
@@ -274,7 +274,7 @@
         </a>
 
         <!-- 6. ROTATE PDF -->
-        <a href="tool.html?tool=rotate" class="tool-card" data-status="optimized" data-category="edit" data-keywords="rotate turn orientation landscape portrait 90 180">
+        <a href="/tools/rotate" class="tool-card" data-status="optimized" data-category="edit" data-keywords="rotate turn orientation landscape portrait 90 180">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-purple">
             <i class="fa-solid fa-rotate-right"></i>
@@ -288,7 +288,7 @@
         </a>
 
         <!-- 7. PAGE NUMBERS -->
-        <a href="tool.html?tool=page-numbers" class="tool-card" data-status="optimized" data-category="edit" data-keywords="page numbers numbering pagination footer header">
+        <a href="/tools/page-numbers" class="tool-card" data-status="optimized" data-category="edit" data-keywords="page numbers numbering pagination footer header">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-amber">
             <i class="fa-solid fa-list-ol"></i>
@@ -302,7 +302,7 @@
         </a>
 
         <!-- 8. ORGANIZE PDF -->
-        <a href="tool.html?tool=organize" class="tool-card" data-status="process" data-category="organize" data-keywords="organize reorder delete remove arrange sort">
+        <a href="/tools/organize" class="tool-card" data-status="process" data-category="organize" data-keywords="organize reorder delete remove arrange sort">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-red">
             <i class="fa-solid fa-folder-tree"></i>
@@ -316,7 +316,7 @@
         </a>
 
         <!-- 9. PDF TO JPG -->
-        <a href="tool.html?tool=pdf-to-jpg" class="tool-card" data-status="optimized" data-category="convert-from" data-keywords="pdf to jpg image extract picture png">
+        <a href="/tools/pdf-to-jpg" class="tool-card" data-status="optimized" data-category="convert-from" data-keywords="pdf to jpg image extract picture png">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-purple">
             <i class="fa-regular fa-image"></i>
@@ -330,7 +330,7 @@
         </a>
 
         <!-- 10. PDF TO WORD -->
-        <a href="tool.html?tool=pdf-to-word" class="tool-card" data-status="optimized" data-category="convert-from" data-keywords="pdf to doc docx word microsoft office convert">
+        <a href="/tools/pdf-to-word" class="tool-card" data-status="optimized" data-category="convert-from" data-keywords="pdf to doc docx word microsoft office convert">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-blue">
             <i class="fa-solid fa-file-word"></i>
@@ -344,7 +344,7 @@
         </a>
 
         <!-- 11. WORD TO PDF -->
-        <a href="tool.html?tool=word-to-pdf" class="tool-card" data-status="process" data-category="convert-to" data-keywords="word to pdf doc docx document convert">
+        <a href="/tools/word-to-pdf" class="tool-card" data-status="process" data-category="convert-to" data-keywords="word to pdf doc docx document convert">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-blue">
             <i class="fa-solid fa-file-arrow-up"></i>
@@ -358,7 +358,7 @@
         </a>
 
         <!-- 12. PDF TO EXCEL -->
-        <a href="tool.html?tool=pdf-to-excel" class="tool-card" data-status="process" data-category="convert-from" data-keywords="pdf to excel xls xlsx spreadsheet tables sheets">
+        <a href="/tools/pdf-to-excel" class="tool-card" data-status="process" data-category="convert-from" data-keywords="pdf to excel xls xlsx spreadsheet tables sheets">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-green">
             <i class="fa-solid fa-file-excel"></i>
@@ -372,7 +372,7 @@
         </a>
 
         <!-- 13. EXCEL TO PDF -->
-        <a href="tool.html?tool=excel-to-pdf" class="tool-card" data-status="process" data-category="convert-to" data-keywords="excel to pdf xls xlsx spreadsheet table">
+        <a href="/tools/excel-to-pdf" class="tool-card" data-status="process" data-category="convert-to" data-keywords="excel to pdf xls xlsx spreadsheet table">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-green">
             <i class="fa-solid fa-file-invoice"></i>
@@ -386,7 +386,7 @@
         </a>
 
         <!-- 14. PDF TO POWERPOINT -->
-        <a href="tool.html?tool=pdf-to-ppt" class="tool-card" data-status="process" data-category="convert-from" data-keywords="pdf to ppt pptx powerpoint slides presentation">
+        <a href="/tools/pdf-to-ppt" class="tool-card" data-status="process" data-category="convert-from" data-keywords="pdf to ppt pptx powerpoint slides presentation">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-amber">
             <i class="fa-solid fa-file-powerpoint"></i>
@@ -400,7 +400,7 @@
         </a>
 
         <!-- 15. POWERPOINT TO PDF -->
-        <a href="tool.html?tool=ppt-to-pdf" class="tool-card" data-status="process" data-category="convert-to" data-keywords="ppt to pdf pptx powerpoint presentation slides">
+        <a href="/tools/ppt-to-pdf" class="tool-card" data-status="process" data-category="convert-to" data-keywords="ppt to pdf pptx powerpoint presentation slides">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-amber">
             <i class="fa-solid fa-presentation-screen"></i>
@@ -414,7 +414,7 @@
         </a>
 
         <!-- 16. PROTECT PDF -->
-        <a href="tool.html?tool=protect" class="tool-card" data-status="optimized" data-category="security" data-keywords="protect lock password encrypt security permission">
+        <a href="/tools/protect" class="tool-card" data-status="optimized" data-category="security" data-keywords="protect lock password encrypt security permission">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-pink">
             <i class="fa-solid fa-lock"></i>
@@ -428,7 +428,7 @@
         </a>
 
         <!-- 17. UNLOCK PDF -->
-        <a href="tool.html?tool=unlock" class="tool-card" data-status="optimized" data-category="security" data-keywords="unlock decrypt remove password open decrypt">
+        <a href="/tools/unlock" class="tool-card" data-status="optimized" data-category="security" data-keywords="unlock decrypt remove password open decrypt">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-pink">
             <i class="fa-solid fa-lock-open"></i>
@@ -442,7 +442,7 @@
         </a>
 
         <!-- 18. SIGN PDF -->
-        <a href="tool.html?tool=sign" class="tool-card" data-status="process" data-category="security" data-keywords="sign signature digital electronic esign contract">
+        <a href="/tools/sign" class="tool-card" data-status="process" data-category="security" data-keywords="sign signature digital electronic esign contract">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-teal">
             <i class="fa-solid fa-signature"></i>
@@ -456,7 +456,7 @@
         </a>
 
         <!-- 19. EDIT PDF -->
-        <a href="tool.html?tool=edit" class="tool-card" data-status="process" data-category="edit" data-keywords="edit annotate draw text highlight shape markup">
+        <a href="/tools/edit" class="tool-card" data-status="process" data-category="edit" data-keywords="edit annotate draw text highlight shape markup">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-blue">
             <i class="fa-solid fa-pen-to-square"></i>
@@ -470,7 +470,7 @@
         </a>
 
         <!-- 20. REDACT PDF -->
-        <a href="tool.html?tool=redact" class="tool-card" data-status="process" data-category="security" data-keywords="redact black out censor privacy confidential hide">
+        <a href="/tools/redact" class="tool-card" data-status="process" data-category="security" data-keywords="redact black out censor privacy confidential hide">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-pink">
             <i class="fa-solid fa-eye-slash"></i>
@@ -484,13 +484,13 @@
         </a>
 
         <!-- 21. PDF TO PDF/A -->
-        <a href="tool.html?tool=pdf-to-pdfa" class="tool-card" data-status="process" data-category="optimize" data-keywords="pdf/a archive iso standard compliance long term">
+        <a href="/tools/pdf-to-pdfa" class="tool-card" data-status="process" data-category="optimize" data-keywords="pdf/a archive iso standard compliance long term">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-green">
             <i class="fa-solid fa-box-archive"></i>
           </div>
-          <h3 class="tool-card-title">PDF to PDF/A</h3>
-          <p class="tool-card-desc">Convert to ISO-standardized PDF/A format for durable long-term digital archiving.</p>
+          <h3 class="tool-card-title">PDF Archival Metadata (PDF/A-style)</h3>
+          <p class="tool-card-desc">Applies archival metadata and document identification tags. Note: this does not perform full ISO 19005 PDF/A conversion (that requires embedded ICC color profiles and full font embedding) — for strict archival compliance, verify with a dedicated PDF/A validator.</p>
           <div class="tool-card-footer">
             <span class="tool-card-action">Use Tool <i class="fa-solid fa-arrow-right"></i></span>
             <span class="tool-card-lang"><i class="fa-solid fa-flask"></i> Beta Tool</span>
@@ -498,7 +498,7 @@
         </a>
 
         <!-- 22. REPAIR PDF -->
-        <a href="tool.html?tool=repair" class="tool-card" data-status="process" data-category="optimize" data-keywords="repair fix corrupt broken restore recover">
+        <a href="/tools/repair" class="tool-card" data-status="process" data-category="optimize" data-keywords="repair fix corrupt broken restore recover">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-green">
             <i class="fa-solid fa-wrench"></i>
@@ -512,7 +512,7 @@
         </a>
 
         <!-- 23. OCR PDF -->
-        <a href="tool.html?tool=ocr" class="tool-card" data-status="optimized" data-category="optimize" data-keywords="ocr text recognition scan scanner searchable">
+        <a href="/tools/ocr" class="tool-card" data-status="optimized" data-category="optimize" data-keywords="ocr text recognition scan scanner searchable">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-green">
             <i class="fa-solid fa-font"></i>
@@ -526,7 +526,7 @@
         </a>
 
         <!-- 24. COMPARE PDF -->
-        <a href="tool.html?tool=compare" class="tool-card" data-status="process" data-category="edit" data-keywords="compare diff side by side changes differences">
+        <a href="/tools/compare" class="tool-card" data-status="process" data-category="edit" data-keywords="compare diff side by side changes differences">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-purple">
             <i class="fa-solid fa-code-compare"></i>
@@ -542,7 +542,7 @@
         <!-- ================= EXCLUSIVE CODEWITHALI TOOLS ================= -->
 
         <!-- 25. MARKDOWN TO PDF (EXCLUSIVE) -->
-        <a href="tool.html?tool=markdown-to-pdf" class="tool-card" data-status="optimized" data-category="exclusive" data-keywords="markdown md documentation developer report notes">
+        <a href="/tools/markdown-to-pdf" class="tool-card" data-status="optimized" data-category="exclusive" data-keywords="markdown md documentation developer report notes">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-teal">
             <i class="fa-brands fa-markdown"></i>
@@ -556,7 +556,7 @@
         </a>
 
         <!-- 26. EXTRACT TEXT / TXT (EXCLUSIVE) -->
-        <a href="tool.html?tool=extract-text" class="tool-card" data-status="optimized" data-category="exclusive" data-keywords="extract text txt raw string copy content">
+        <a href="/tools/extract-text" class="tool-card" data-status="optimized" data-category="exclusive" data-keywords="extract text txt raw string copy content">
           <span class="tool-status-tag tag-ready"><i class="fa-solid fa-bolt"></i> Ready</span>
           <div class="tool-card-icon icon-teal">
             <i class="fa-solid fa-align-left"></i>
@@ -570,7 +570,7 @@
         </a>
 
         <!-- 27. EXTRACT IMAGES (EXCLUSIVE) -->
-        <a href="tool.html?tool=extract-images" class="tool-card" data-status="process" data-category="exclusive" data-keywords="extract images rip assets media pictures photos">
+        <a href="/tools/extract-images" class="tool-card" data-status="process" data-category="exclusive" data-keywords="extract images rip assets media pictures photos">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-teal">
             <i class="fa-solid fa-images"></i>
@@ -584,7 +584,7 @@
         </a>
 
         <!-- 28. GRAYSCALE & B/W CONVERTER (EXCLUSIVE) -->
-        <a href="tool.html?tool=grayscale" class="tool-card" data-status="process" data-category="exclusive" data-keywords="grayscale black white monochrome ink printer save">
+        <a href="/tools/grayscale" class="tool-card" data-status="process" data-category="exclusive" data-keywords="grayscale black white monochrome ink printer save">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-teal">
             <i class="fa-solid fa-droplet-slash"></i>
@@ -598,7 +598,7 @@
         </a>
 
         <!-- 29. INVERT COLORS / DARK MODE (EXCLUSIVE) -->
-        <a href="tool.html?tool=invert" class="tool-card" data-status="process" data-category="exclusive" data-keywords="invert dark mode reading night colors high contrast">
+        <a href="/tools/invert" class="tool-card" data-status="process" data-category="exclusive" data-keywords="invert dark mode reading night colors high contrast">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-teal">
             <i class="fa-solid fa-circle-half-stroke"></i>
@@ -612,7 +612,7 @@
         </a>
 
         <!-- 30. METADATA EDITOR (EXCLUSIVE) -->
-        <a href="tool.html?tool=metadata" class="tool-card" data-status="process" data-category="exclusive" data-keywords="metadata author title keywords subject tags info editor">
+        <a href="/tools/metadata" class="tool-card" data-status="process" data-category="exclusive" data-keywords="metadata author title keywords subject tags info editor">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-teal">
             <i class="fa-solid fa-tags"></i>
@@ -626,7 +626,7 @@
         </a>
 
         <!-- 31. FLATTEN PDF FORMS (EXCLUSIVE) -->
-        <a href="tool.html?tool=flatten" class="tool-card" data-status="process" data-category="exclusive" data-keywords="flatten forms acroform fields bake interactive">
+        <a href="/tools/flatten" class="tool-card" data-status="process" data-category="exclusive" data-keywords="flatten forms acroform fields bake interactive">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-teal">
             <i class="fa-solid fa-layer-group"></i>
@@ -640,7 +640,7 @@
         </a>
 
         <!-- 32. BASE64 TO PDF (EXCLUSIVE) -->
-        <a href="tool.html?tool=base64" class="tool-card" data-status="process" data-category="exclusive" data-keywords="base64 string encode decode data uri web developer">
+        <a href="/tools/base64" class="tool-card" data-status="process" data-category="exclusive" data-keywords="base64 string encode decode data uri web developer">
           <span class="tool-status-tag tag-beta"><i class="fa-solid fa-flask"></i> Beta</span>
           <div class="tool-card-icon icon-teal">
             <i class="fa-solid fa-code"></i>
@@ -811,33 +811,33 @@
         <div class="footer-col">
           <h5>Core Tools</h5>
           <ul class="footer-links">
-            <li><a href="tool.html?tool=merge">Merge PDF</a></li>
-            <li><a href="tool.html?tool=split">Split PDF</a></li>
-            <li><a href="tool.html?tool=compress">Compress PDF</a></li>
-            <li><a href="tool.html?tool=image-to-pdf">Image to PDF</a></li>
-            <li><a href="tool.html?tool=watermark">Add Watermark</a></li>
+            <li><a href="/tools/merge">Merge PDF</a></li>
+            <li><a href="/tools/split">Split PDF</a></li>
+            <li><a href="/tools/compress">Compress PDF</a></li>
+            <li><a href="/tools/image-to-pdf">Image to PDF</a></li>
+            <li><a href="/tools/watermark">Add Watermark</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
           <h5>Security & Edit</h5>
           <ul class="footer-links">
-            <li><a href="tool.html?tool=protect">Protect PDF</a></li>
-            <li><a href="tool.html?tool=unlock">Unlock PDF</a></li>
-            <li><a href="tool.html?tool=rotate">Rotate PDF</a></li>
-            <li><a href="tool.html?tool=page-numbers">Page Numbers</a></li>
-            <li><a href="tool.html?tool=sign">Sign Document</a></li>
+            <li><a href="/tools/protect">Protect PDF</a></li>
+            <li><a href="/tools/unlock">Unlock PDF</a></li>
+            <li><a href="/tools/rotate">Rotate PDF</a></li>
+            <li><a href="/tools/page-numbers">Page Numbers</a></li>
+            <li><a href="/tools/sign">Sign Document</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
           <h5>Exclusives</h5>
           <ul class="footer-links">
-            <li><a href="tool.html?tool=markdown-to-pdf">Markdown to PDF</a></li>
-            <li><a href="tool.html?tool=extract-text">Extract Text</a></li>
-            <li><a href="tool.html?tool=extract-images">Extract Images</a></li>
-            <li><a href="tool.html?tool=grayscale">Grayscale B&W</a></li>
-            <li><a href="tool.html?tool=metadata">Metadata Editor</a></li>
+            <li><a href="/tools/markdown-to-pdf">Markdown to PDF</a></li>
+            <li><a href="/tools/extract-text">Extract Text</a></li>
+            <li><a href="/tools/extract-images">Extract Images</a></li>
+            <li><a href="/tools/grayscale">Grayscale B&W</a></li>
+            <li><a href="/tools/metadata">Metadata Editor</a></li>
           </ul>
         </div>
       </div>
@@ -854,9 +854,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script>window.PDFLib || document.write('<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>')</script>
-  <script src="js/pdf-engine-client.js"></script>
-  <script src="js/firebase-config.js"></script>
-  <script src="js/script.js"></script>
+  <script src="/js/pdf-engine-client.js"></script>
+  <script src="/js/script.js"></script>
 
   <!-- Service Worker Registration for 100% Offline Capability -->
   <script>
@@ -932,7 +931,7 @@
       </ul>
 
       <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); text-align: center;">
-        <a href="why-us.html" class="cta-btn-sm" style="display: block; text-align: center; padding: 10px 16px; text-decoration: none;">
+        <a href="/why-us" class="cta-btn-sm" style="display: block; text-align: center; padding: 10px 16px; text-decoration: none;">
           Full Architecture Report <i class="fa-solid fa-arrow-right"></i>
         </a>
       </div>

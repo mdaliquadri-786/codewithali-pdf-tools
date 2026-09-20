@@ -15,9 +15,9 @@
   
   <!-- Custom Stylesheet -->
   <meta name="description" content="Free private in-browser PDF tools: merge, split, compress, convert, OCR, protect and more. Files never leave your device.">
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#e5322d">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>
@@ -25,7 +25,7 @@
   <!-- Navigation Bar -->
   <header class="navbar">
     <div class="container nav-container">
-      <a href="index.html" class="brand">
+      <a href="/" class="brand">
         <div class="brand-icon">
           <i class="fa-solid fa-file-pdf"></i>
         </div>
@@ -35,12 +35,12 @@
       </a>
 
       <nav class="nav-menu" id="navMenu">
-        <a href="index.html" class="nav-link">All Tools</a>
-        <a href="tool.html?tool=merge" class="nav-link" data-tool="merge">Merge</a>
-        <a href="tool.html?tool=split" class="nav-link" data-tool="split">Split</a>
-        <a href="tool.html?tool=compress" class="nav-link" data-tool="compress">Compress</a>
-        <a href="tool.html?tool=image-to-pdf" class="nav-link" data-tool="image-to-pdf">Convert</a>
-        <a href="why-us.html" class="nav-link">Why CodeWithAli</a>
+        <a href="/" class="nav-link">All Tools</a>
+        <a href="/tools/merge" class="nav-link" data-tool="merge">Merge</a>
+        <a href="/tools/split" class="nav-link" data-tool="split">Split</a>
+        <a href="/tools/compress" class="nav-link" data-tool="compress">Compress</a>
+        <a href="/tools/image-to-pdf" class="nav-link" data-tool="image-to-pdf">Convert</a>
+        <a href="/why-us" class="nav-link">Why CodeWithAli</a>
       </nav>
 
       <div class="nav-actions">
@@ -53,7 +53,7 @@
         <button class="nav-toggle" id="navToggle" aria-label="Toggle Menu">
           <i class="fa-solid fa-bars"></i>
         </button>
-        <a href="tool.html?tool=merge" class="cta-btn-sm desktop-only-btn">
+        <a href="/tools/merge" class="cta-btn-sm desktop-only-btn">
           <i class="fa-solid fa-bolt"></i> Get Started
         </a>
       </div>
@@ -64,7 +64,7 @@
   <main class="container" id="main-content">
     <section class="workspace-header">
       <div class="breadcrumb">
-        <a href="index.html">Home</a>
+        <a href="/">Home</a>
         <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
         <span>Tools</span>
         <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
@@ -89,19 +89,19 @@
         The requested PDF tool could not be located in the suite registry.
       </p>
       <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px;">
-        <a href="index.html" class="action-submit-btn" style="width: auto; padding: 12px 28px; text-decoration: none;">
+        <a href="/" class="action-submit-btn" style="width: auto; padding: 12px 28px; text-decoration: none;">
           <i class="fa-solid fa-grid-2"></i> Browse All 32+ Tools
         </a>
       </div>
       <div style="max-width: 600px; margin: 0 auto; text-align: left; padding: 20px; background: var(--bg-tertiary); border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
         <strong style="display: block; font-size: 0.9rem; margin-bottom: 10px; color: var(--text-primary);"><i class="fa-solid fa-lightbulb" style="color: #f59e0b;"></i> Popular Tools:</strong>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <a href="tool.html?tool=merge" class="filter-pill" style="font-size: 0.85rem;">Merge PDF</a>
-          <a href="tool.html?tool=split" class="filter-pill" style="font-size: 0.85rem;">Split PDF</a>
-          <a href="tool.html?tool=compress" class="filter-pill" style="font-size: 0.85rem;">Compress PDF</a>
-          <a href="tool.html?tool=image-to-pdf" class="filter-pill" style="font-size: 0.85rem;">Image to PDF</a>
-          <a href="tool.html?tool=ocr" class="filter-pill" style="font-size: 0.85rem;">OCR PDF</a>
-          <a href="tool.html?tool=sign" class="filter-pill" style="font-size: 0.85rem;">Sign PDF</a>
+          <a href="/tools/merge" class="filter-pill" style="font-size: 0.85rem;">Merge PDF</a>
+          <a href="/tools/split" class="filter-pill" style="font-size: 0.85rem;">Split PDF</a>
+          <a href="/tools/compress" class="filter-pill" style="font-size: 0.85rem;">Compress PDF</a>
+          <a href="/tools/image-to-pdf" class="filter-pill" style="font-size: 0.85rem;">Image to PDF</a>
+          <a href="/tools/ocr" class="filter-pill" style="font-size: 0.85rem;">OCR PDF</a>
+          <a href="/tools/sign" class="filter-pill" style="font-size: 0.85rem;">Sign PDF</a>
         </div>
       </div>
     </div>
@@ -317,7 +317,7 @@
           <i class="fa-solid fa-rotate-left"></i> Process another file
         </button>
         <span style="color: var(--text-muted); margin: 0 8px;">•</span>
-        <a href="index.html" class="restart-btn">
+        <a href="/" class="restart-btn">
           <i class="fa-solid fa-grid-2"></i> All PDF tools
         </a>
       </div>
@@ -328,54 +328,12 @@
   <!-- Toast Container -->
   <div id="toastContainer" class="toast-container"></div>
 
-   <!-- Footer -->
-  <footer class="footer">
+  <!-- Footer -->
+  <footer class="footer" style="margin-top: 60px;">
     <div class="container">
-      <div class="footer-top">
-        <div class="footer-brand">
-          <h3>CodeWithAli PDF Suite</h3>
-          <p>
-            The modern, open, and feature-complete PDF tools workstation inspired by iLovePDF. Process documents securely in your browser and on server.
-          </p>
-        </div>
-
-        <div class="footer-col">
-          <h5>Core Tools</h5>
-          <ul class="footer-links">
-            <li><a href="tool.html?tool=merge">Merge PDF</a></li>
-            <li><a href="tool.html?tool=split">Split PDF</a></li>
-            <li><a href="tool.html?tool=compress">Compress PDF</a></li>
-            <li><a href="tool.html?tool=image-to-pdf">Image to PDF</a></li>
-            <li><a href="tool.html?tool=watermark">Add Watermark</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h5>Security & Edit</h5>
-          <ul class="footer-links">
-            <li><a href="tool.html?tool=protect">Protect PDF</a></li>
-            <li><a href="tool.html?tool=unlock">Unlock PDF</a></li>
-            <li><a href="tool.html?tool=rotate">Rotate PDF</a></li>
-            <li><a href="tool.html?tool=page-numbers">Page Numbers</a></li>
-            <li><a href="tool.html?tool=sign">Sign Document</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h5>Exclusives</h5>
-          <ul class="footer-links">
-            <li><a href="tool.html?tool=markdown-to-pdf">Markdown to PDF</a></li>
-            <li><a href="tool.html?tool=extract-text">Extract Text</a></li>
-            <li><a href="tool.html?tool=extract-images">Extract Images</a></li>
-            <li><a href="tool.html?tool=grayscale">Grayscale B&W</a></li>
-            <li><a href="tool.html?tool=metadata">Metadata Editor</a></li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="footer-bottom">
-        <p>© 2026 CodeWithAli PDF Tools Suite • Crafted with ❤️ by Mohammed Ali Quadri</p>
-        <p>Production Ready • High Performance</p>
+      <div class="footer-bottom" style="border-top: none; padding-top: 0;">
+        <p>© 2026 CodeWithAli PDF Tools Suite • Crafted by Mohammed Ali Quadri</p>
+        <p><a href="/" style="color: var(--primary);">← Back to All Tools</a></p>
       </div>
     </div>
   </footer>
@@ -408,21 +366,20 @@
   <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 
   <!-- Application Logic -->
-  <script src="js/pdf-engine-client.js"></script>
-  <script src="js/firebase-config.js"></script>
-  <script src="js/script.js"></script>
+  <script src="/js/pdf-engine-client.js"></script>
+  <script src="/js/script.js"></script>
   
   <!-- All 7 New Engine Files -->
-  <script src="js/ocr-engine.js"></script>
-  <script src="js/word-to-pdf.js"></script>
-  <script src="js/excel-to-pdf.js"></script>
-  <script src="js/pdf-to-ppt.js"></script>
-  <script src="js/ppt-to-pdf.js"></script>
-  <script src="js/security-engine.js"></script>
-  <script src="js/pdfa-engine.js"></script>
+  <script src="/js/ocr-engine.js"></script>
+  <script src="/js/word-to-pdf.js"></script>
+  <script src="/js/excel-to-pdf.js"></script>
+  <script src="/js/pdf-to-ppt.js"></script>
+  <script src="/js/ppt-to-pdf.js"></script>
+  <script src="/js/security-engine.js"></script>
+  <script src="/js/pdfa-engine.js"></script>
 
   <!-- The Master Override File (Must load LAST) -->
-  <script src="js/real-engine-overrides.js"></script>
+  <script src="/js/real-engine-overrides.js"></script>
 
   <!-- Service Worker Registration -->
   <script>
@@ -466,7 +423,7 @@
         </li>
       </ul>
       <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); text-align: center;">
-        <a href="why-us.html" class="cta-btn-sm" style="display: block; text-align: center; padding: 10px 16px; text-decoration: none;">
+        <a href="/why-us" class="cta-btn-sm" style="display: block; text-align: center; padding: 10px 16px; text-decoration: none;">
           Full Architecture Report <i class="fa-solid fa-arrow-right"></i>
         </a>
       </div>

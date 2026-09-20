@@ -49,8 +49,22 @@ window.RealSecurityEngine = {
       // Attempt to load WITH the user's password. This performs actual decryption.
       const doc = await PDFDocument.load(buffer, { password: password });
 
-      // Saving it without calling doc.encrypt() strips the password and exports a clean PDF.
-      const bytes = await doc.save({ useObjectStreams: true });
+      // BUG FIX: simply re-saving the loaded document (even without calling
+      // doc.encrypt() again) left a dangling /Encrypt reference in the
+      // output's trailer pointing at the original encryption dictionary
+      // object — confirmed via an independent Python (pypdf) parser reading
+      // the raw trailer. pypdf's own is_encrypted flag still correctly read
+      // false and content was still readable either way, so this was
+      // cosmetic rather than a functional or security problem, but a fully
+      // clean file is better than one carrying stale encryption metadata.
+      // Rebuilding into a brand-new PDFDocument and copying pages over
+      // produces a genuinely clean file with no trace of the old /Encrypt
+      // entry at all (verified: zero occurrences of "/Encrypt" in the
+      // output bytes, not just a semantic is_encrypted=false).
+      const clean = await PDFDocument.create();
+      const pages = await clean.copyPages(doc, doc.getPageIndices());
+      pages.forEach((p) => clean.addPage(p));
+      const bytes = await clean.save();
       return new Blob([bytes], { type: 'application/pdf' });
     } catch (e) {
       if ((e.message || '').toLowerCase().includes('password') || (e.message || '').toLowerCase().includes('encrypt')) {

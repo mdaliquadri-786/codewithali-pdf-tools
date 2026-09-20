@@ -33,9 +33,25 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
   }
 });
 
-// Basic CORS header helper for wide browser client compatibility
+// CORS: the frontend and this API are same-origin (browsers don't need CORS
+// headers at all for same-origin requests — CORS only governs CROSS-origin
+// JS fetch/XHR). The previous "Access-Control-Allow-Origin: *" applied to
+// EVERY route and let any third-party website's JavaScript call this API
+// directly from a visitor's browser (upload/process files, hit the contact
+// endpoint, etc. using that visitor's traffic/quota). Restrict it to this
+// app's own deployed origin, plus localhost for local development.
+const ALLOWED_ORIGINS = new Set([
+  'https://codewithali-pdf-tools.vercel.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+]);
+
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') {
@@ -48,6 +64,28 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// -----------------------------------------------------------------------------
+// Backward-compatible legacy URL redirects — MUST be registered before
+// express.static() below, otherwise static file serving would intercept
+// these exact filenames and serve them directly, and these redirects would
+// never fire.
+// -----------------------------------------------------------------------------
+app.get('/index.html', (req, res) => {
+  res.redirect(301, '/');
+});
+
+app.get('/why-us.html', (req, res) => {
+  res.redirect(301, '/why-us');
+});
+
+app.get('/tool.html', (req, res) => {
+  const tool = String(req.query.tool || '').toLowerCase().trim();
+  if (tool) {
+    return res.redirect(302, `/tools/${encodeURIComponent(tool)}`);
+  }
+  res.redirect(302, '/');
+});
+
 // Serve static assets from public/
 app.use(express.static(PUBLIC_DIR));
 app.use('/public', express.static(PUBLIC_DIR));
@@ -58,9 +96,35 @@ app.use('/api/pdf', pdfRoutes);
 const contactRoutes = require('./routes/contact');
 app.use('/api/contact', contactRoutes);
 
-// Tool page route helper
+// Tool page route helper — validated against the authoritative tool list in
+// public/js/script.js's TOOLS registry, so an invalid slug gets a genuine
+// HTTP 404 (not just a client-side illusion of one after a 200 response).
+// NOTE: keep this list in sync with the `TOOLS` object in public/js/script.js
+// if a tool is ever added or removed.
+const VALID_TOOL_SLUGS = new Set([
+  'merge', 'split', 'compress', 'image-to-pdf', 'rotate', 'watermark', 'page-numbers',
+  'organize', 'pdf-to-jpg', 'extract-text', 'flatten', 'metadata', 'base64', 'grayscale',
+  'invert', 'markdown-to-pdf', 'sign', 'redact', 'extract-images', 'ocr', 'ai-summarize',
+  'pdf-to-word', 'word-to-pdf', 'pdf-to-excel', 'excel-to-pdf', 'pdf-to-ppt', 'ppt-to-pdf',
+  'protect', 'unlock', 'repair', 'pdf-to-pdfa', 'compare', 'edit'
+]);
+
 app.get('/tools/:tool', (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'tool.html'));
+  const slug = String(req.params.tool || '').toLowerCase();
+  // Same file either way (the client-side "Tool Not Found" view already
+  // handles the visual state correctly) — but the HTTP status now honestly
+  // reflects whether the route is real, which matters for crawlers, curl,
+  // and anything else that checks status codes rather than rendering JS.
+  res.status(VALID_TOOL_SLUGS.has(slug) ? 200 : 404).sendFile(path.join(PUBLIC_DIR, 'tool.html'));
+});
+
+// Canonical clean routes
+app.get('/why-us', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'why-us.html'));
+});
+
+app.get('/home', (req, res) => {
+  res.redirect(302, '/');
 });
 
 // Health check endpoint

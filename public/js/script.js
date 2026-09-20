@@ -1681,15 +1681,21 @@ const TOOLS = {
   },
 
   'ai-summarize': {
-    name: 'Private Local PDF Summarizer (Extractive NLP)',
+    name: 'AI PDF Summarizer (Cloud — Google Gemini)',
     icon: 'fa-wand-magic-sparkles',
-    desc: 'Extract key sentences, executive summaries, and search document passages using on-device extractive NLP (zero cloud data leakage).',
+    desc: 'Extract executive summaries, key points, and ask questions about your document using Google Gemini. Unlike every other tool on this site, this one sends your document\'s text content to Google\'s servers for processing — it is not local or private.',
     accept: '.pdf,application/pdf',
     multiple: false,
     minFiles: 1,
     btnText: 'Generate AI Summary & Q&A',
     status: 'optimized',
     renderOptions: () => `
+      <div class="option-group" style="background: rgba(229, 50, 45, 0.08); border: 1px solid rgba(229, 50, 45, 0.25); border-radius: var(--radius-md, 12px); padding: 14px 16px; margin-bottom: 16px;">
+        <strong style="display:flex; align-items:center; gap:8px; color: var(--primary, #e5322d);"><i class="fa-solid fa-cloud-arrow-up"></i> This tool is not private</strong>
+        <p style="font-size: 0.85rem; margin: 6px 0 0; line-height: 1.5;">
+          To generate the summary, your document's extracted text is sent to <strong>Google's Gemini API</strong> using an API key you provide. This is different from every other tool on this site, which processes files 100% locally in your browser and never transmits document content anywhere. Do not use this tool on documents you don't want to share with Google.
+        </p>
+      </div>
       <div class="option-group">
         <label class="option-label">AI Processing Mode</label>
         <div class="radio-cards">
@@ -1697,7 +1703,7 @@ const TOOLS = {
             <input type="radio" name="aiSummaryMode" value="executive" checked>
             <div class="radio-card-info">
               <strong>Executive Summary (5 Key Points)</strong>
-              <small>100% In-browser private NLP extraction</small>
+              <small>Sent to Google Gemini for processing</small>
             </div>
           </label>
           <label class="radio-card">
@@ -1891,7 +1897,7 @@ const TOOLS = {
     accept: '.pdf,application/pdf',
     multiple: false,
     minFiles: 1,
-    btnText: 'Convert to PDF/A',
+    btnText: 'Apply Archival Metadata',
     status: 'process',
     renderOptions: () => `
       <div class="option-group">

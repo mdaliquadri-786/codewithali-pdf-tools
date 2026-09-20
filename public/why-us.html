@@ -15,11 +15,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   
   <!-- PWA Manifest -->
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#e5322d">
 
   <!-- Custom Stylesheet -->
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>
@@ -27,7 +27,7 @@
   <!-- Navigation Bar -->
   <header class="navbar">
     <div class="container nav-container">
-      <a href="index.html" class="brand">
+      <a href="/" class="brand">
         <div class="brand-icon">
           <i class="fa-solid fa-file-pdf"></i>
         </div>
@@ -37,12 +37,12 @@
       </a>
 
       <nav class="nav-menu" id="navMenu">
-        <a href="index.html" class="nav-link">Home</a>
-        <a href="tool.html?tool=merge" class="nav-link">Merge</a>
-        <a href="tool.html?tool=split" class="nav-link">Split</a>
-        <a href="tool.html?tool=compress" class="nav-link">Compress</a>
-        <a href="tool.html?tool=image-to-pdf" class="nav-link">Convert</a>
-        <a href="why-us.html" class="nav-link active">Why CodeWithAli</a>
+        <a href="/" class="nav-link">Home</a>
+        <a href="/tools/merge" class="nav-link">Merge</a>
+        <a href="/tools/split" class="nav-link">Split</a>
+        <a href="/tools/compress" class="nav-link">Compress</a>
+        <a href="/tools/image-to-pdf" class="nav-link">Convert</a>
+        <a href="/why-us" class="nav-link active">Why CodeWithAli</a>
       </nav>
 
       <div class="nav-actions">
@@ -55,7 +55,7 @@
         <button class="nav-toggle" id="navToggle" aria-label="Toggle Menu">
           <i class="fa-solid fa-bars"></i>
         </button>
-        <a href="tool.html?tool=merge" class="cta-btn-sm desktop-only-btn">
+        <a href="/tools/merge" class="cta-btn-sm desktop-only-btn">
           <i class="fa-solid fa-bolt"></i> Get Started
         </a>
       </div>
@@ -284,8 +284,8 @@
         <span style="background: var(--bg-tertiary); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">HTML5 Canvas Pipeline</span>
       </div>
       <div style="text-align: center; border-top: 1px solid var(--border-color); padding-top: 18px;">
-        <a href="index.html" class="cta-btn-sm" style="display: inline-flex; padding: 10px 24px;">
-           Explore All 32 PDF Tools
+        <a href="/" class="cta-btn-sm" style="display: inline-flex; padding: 10px 24px;">
+          <i class="fa-solid fa-arrow-left"></i> Explore All 32 PDF Tools
         </a>
       </div>
     </div>
@@ -294,58 +294,13 @@
 
   <!-- Footer -->
   <footer class="footer">
-    <div class="container">
-      <div class="footer-top">
-        <div class="footer-brand">
-          <h3>CodeWithAli PDF Suite</h3>
-          <p>
-            The modern, open, and feature-complete PDF tools workstation inspired by iLovePDF. Process documents securely in your browser and on server.
-          </p>
-        </div>
-
-        <div class="footer-col">
-          <h5>Core Tools</h5>
-          <ul class="footer-links">
-            <li><a href="tool.html?tool=merge">Merge PDF</a></li>
-            <li><a href="tool.html?tool=split">Split PDF</a></li>
-            <li><a href="tool.html?tool=compress">Compress PDF</a></li>
-            <li><a href="tool.html?tool=image-to-pdf">Image to PDF</a></li>
-            <li><a href="tool.html?tool=watermark">Add Watermark</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h5>Security & Edit</h5>
-          <ul class="footer-links">
-            <li><a href="tool.html?tool=protect">Protect PDF</a></li>
-            <li><a href="tool.html?tool=unlock">Unlock PDF</a></li>
-            <li><a href="tool.html?tool=rotate">Rotate PDF</a></li>
-            <li><a href="tool.html?tool=page-numbers">Page Numbers</a></li>
-            <li><a href="tool.html?tool=sign">Sign Document</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h5>Exclusives</h5>
-          <ul class="footer-links">
-            <li><a href="tool.html?tool=markdown-to-pdf">Markdown to PDF</a></li>
-            <li><a href="tool.html?tool=extract-text">Extract Text</a></li>
-            <li><a href="tool.html?tool=extract-images">Extract Images</a></li>
-            <li><a href="tool.html?tool=grayscale">Grayscale B&W</a></li>
-            <li><a href="tool.html?tool=metadata">Metadata Editor</a></li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="footer-bottom">
-        <p>© 2026 CodeWithAli PDF Tools Suite • Crafted with ❤️ by Mohammed Ali Quadri</p>
-        <p>Production Ready • High Performance</p>
-      </div>
+    <div class="container footer-bottom">
+      <p>&copy; 2026 CodeWithAli PDF Tools Suite. Engineered by Mohammed Ali Quadri.</p>
     </div>
   </footer>
 
   <!-- Theme script -->
-  <script src="js/script.js"></script>
+  <script src="/js/script.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

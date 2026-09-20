@@ -2,13 +2,19 @@
   "version": 2,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
-    { "source": "/tools/(.*)", "destination": "/tool.html" }
+    { "source": "/tools/(.*)", "destination": "/api/index.js" },
+    { "source": "/tools", "destination": "/api/index.js" },
+    { "source": "/why-us", "destination": "/api/index.js" },
+    { "source": "/home", "destination": "/api/index.js" },
+    { "source": "/index.html", "destination": "/api/index.js" },
+    { "source": "/why-us.html", "destination": "/api/index.js" },
+    { "source": "/tool.html", "destination": "/api/index.js" }
   ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Origin", "value": "https://codewithali-pdf-tools.vercel.app" },
         { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
         { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" }
       ]
