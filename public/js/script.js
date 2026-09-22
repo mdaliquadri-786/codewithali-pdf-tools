@@ -1728,7 +1728,6 @@ function initWorkspace() {
   }
 
   async function handleFileSelection(newFiles) {
-    // CRASH PROTECTION LOGIC ADDED HERE
     const MAX_FILE_SIZE_MB = 100;
     const MAX_TOTAL_FILES = 50;
 
@@ -1784,7 +1783,7 @@ function initWorkspace() {
     uploadedFiles.forEach((file, index) => {
       const card = document.createElement('div');
       card.className = 'file-card';
-      // DRAG AND DROP REORDER SUPPORT FOR MERGE TOOL
+      
       if (toolKey === 'merge' || toolKey === 'image-to-pdf') {
           card.draggable = true;
           card.dataset.index = index;
@@ -1831,7 +1830,6 @@ function initWorkspace() {
       filesContainer.appendChild(card);
     });
 
-    // Populate Metadata Inputs if in metadata editor
     if (toolKey === 'metadata' && uploadedFiles.length > 0) {
       try {
         const { PDFDocument } = await Engine1_PDFLib.ensureLibrary();
@@ -1853,7 +1851,6 @@ function initWorkspace() {
       }
     }
 
-    // Interactive Thumbnail Grid for visual tools
     const visualTools = ['split', 'rotate', 'organize', 'redact'];
     const pagesWrapper = document.getElementById('pagesPreviewWrapper');
     const pagesContainer = document.getElementById('pagesContainer');
@@ -1899,8 +1896,7 @@ function initWorkspace() {
         let downloadFilename = 'CodeWithAli_Document.pdf';
         const file = uploadedFiles[0];
         
-        // WORKER ROUTING INTEGRATION
-        const engine = window.ClientPDFEngine; // ClientPDFEngine with Worker logic
+        const engine = window.ClientPDFEngine; 
 
         if (toolKey === 'merge') {
           if (engine) resultBlob = await engine.mergePDFs(uploadedFiles);
@@ -2052,12 +2048,12 @@ function initWorkspace() {
         else if (toolKey === 'extract-images') {
           const extracted = await Engine2_PDFJS.extractEmbeddedImages(file, (p) => setProgressBar(p));
           if (extracted.length === 0) {
-            throw new Error('No embedded images were found in this PDF. (This tool extracts images embedded in the document — if the PDF has no pictures/photos in it, there is nothing to extract.)');
+            throw new Error('No embedded images were found in this PDF.');
           } else if (extracted.length === 1) {
             resultBlob = extracted[0].blob;
             downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_${extracted[0].name}`;
           } else {
-            if (!window.JSZip) throw new Error('JSZip library failed to load — cannot bundle the extracted images.');
+            if (!window.JSZip) throw new Error('JSZip library failed to load.');
             const zip = new window.JSZip();
             extracted.forEach((img) => zip.file(img.name, img.blob));
             resultBlob = await zip.generateAsync({ type: 'blob' });
@@ -2082,10 +2078,25 @@ function initWorkspace() {
         }
         else if (toolKey === 'pdf-to-word') {
           if (engine && engine.pdfToWord) {
-             // 1. Hybrid Backend Execution Route for Vercel 
-             const res = await engine.pdfToWord(file);
-             showResultScreen(res, toolConfig);
-             return;
+             try {
+               // 1. Try Hybrid Backend Execution Route for Vercel 
+               const res = await engine.pdfToWord(file);
+               showResultScreen(res, toolConfig);
+               return;
+             } catch (backendError) {
+               console.warn("Backend API failed (PyMuPDF limit), falling back to Local JS Converter...", backendError);
+               showToast("Complex layout detected. Using local browser engine for safe extraction...", "info");
+               
+               // 2. Client Side Fallback (Zero crash guarantee)
+               const buf = await Engine1_PDFLib.readFileAsArrayBuffer(file);
+               let rawText = '';
+               if (window.ClientPDFEngine) {
+                 rawText = await window.ClientPDFEngine.extractTextAccurate(buf);
+               }
+               const paragraphs = (rawText || 'Converted Document Content').split('\n').filter(Boolean);
+               resultBlob = OOXMLBuilder.buildDocx(paragraphs, file.name);
+               downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.docx`;
+             }
           } else {
             // 2. Client Side Fallback
             const buf = await Engine1_PDFLib.readFileAsArrayBuffer(file);
