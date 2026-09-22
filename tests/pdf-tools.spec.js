@@ -4,7 +4,6 @@ const fs = require('fs');
 const { PDFDocument } = require('pdf-lib');
 
 test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
-    // Fix: Increase global test suite timeout to 120 seconds to prevent early cancellation
     test.describe.configure({ timeout: 120000 });
 
     const dummyPdfPath = path.join(__dirname, 'dummy.pdf');
@@ -33,9 +32,16 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                 consoleErrors.push(`[Page Exception] ${error.message}`);
             });
 
-            page.on('response', response => {
+            // Enhanced network response logging with body capture for 400+ errors
+            page.on('response', async response => {
                 if (response.status() >= 400) {
-                    consoleErrors.push(`[HTTP ${response.status()}] ${response.url()}`);
+                    let body = '';
+                    try {
+                        body = await response.text();
+                    } catch {
+                        body = '<response body unavailable>';
+                    }
+                    consoleErrors.push(`[HTTP ${response.status()}] ${response.url()}\n${body}`);
                 }
             });
 
@@ -58,14 +64,14 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
             const resultCard = page.locator('#resultCard');
             const errorMessage = page.locator('.toast-error');
 
-            await expect.poll(
+            const outcome = await expect.poll(
                 async () => {
                     if (await resultCard.isVisible()) {
                         return 'success';
                     }
 
                     if (await errorMessage.isVisible()) {
-                        return `error: ${await errorMessage.innerText()}`;
+                        return `error: ${(await errorMessage.innerText()).trim()}`;
                     }
 
                     return 'pending';
@@ -74,11 +80,14 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                     timeout: 90000,
                     intervals: [1000, 2000, 5000],
                     message: () => [
+                        `Tool: ${tool}`,
                         'Processing failed or timed out.',
                         ...consoleErrors
                     ].join('\n')
                 }
-            ).toBe('success');
+            );
+
+            expect(outcome).toBe('success');
 
             const downloadHref = await page.locator('#downloadResultBtn, #downloadBtn').getAttribute('href');
             expect(downloadHref).toMatch(/^(blob:|data:)/);
