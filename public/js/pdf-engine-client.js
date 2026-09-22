@@ -1,7 +1,7 @@
 /**
  * CodeWithAli PDF Engine - Client-Side Universal Engine v11.0 (Production Optimized)
  * 100% In-Browser Execution for Live Server & Serverless Environments
- * Supports: Urdu, Arabic, Telugu, Hindi, English, and all World Languages
+ * Supports: Web Workers (Zero UI Freeze), Urdu, Arabic, Telugu, Hindi, English
  * Zero 'Keede Makoode' / Corrupt Characters Guarantee
  */
 
@@ -18,6 +18,40 @@ window.ClientPDFEngine = {
     } catch (e) {
       console.warn('PDF.js worker initialization note:', e.message);
     }
+  },
+
+  /**
+   * Universal Web Worker Execution Engine (ZERO UI FREEZE)
+   * Sends ArrayBuffers to background thread for heavy processing
+   */
+  executeInWorker(actionType, fileBuffers) {
+    return new Promise((resolve, reject) => {
+      if (!window.Worker) {
+        return reject(new Error("Web Workers are not supported in your browser."));
+      }
+
+      const worker = new Worker('/js/pdf-worker.js');
+
+      worker.onmessage = function (e) {
+        const { success, result, error } = e.data;
+        if (success) {
+          resolve(result);
+        } else {
+          reject(new Error(error || "Unknown worker error"));
+        }
+        worker.terminate(); // Memory cleanup
+      };
+
+      worker.onerror = function (err) {
+        reject(err);
+        worker.terminate();
+      };
+
+      worker.postMessage({
+        action: actionType,
+        fileBuffers: fileBuffers
+      });
+    });
   },
 
   /**
@@ -345,25 +379,44 @@ window.ClientPDFEngine = {
   },
 
   // ===========================================================================
-  // 3. MERGE PDFS
+  // 3. MERGE PDFS (NOW USING WEB WORKER FOR ZERO UI FREEZE)
   // ===========================================================================
   async mergePDFs(files) {
-    if (!window.PDFLib) throw new Error('PDF library is loading, please try again.');
-    const { PDFDocument } = window.PDFLib;
-    const mergedDoc = await PDFDocument.create();
+    try {
+      const fileBuffers = [];
+      for (const file of files) {
+        const buffer = await this.readAsArrayBuffer(file);
+        fileBuffers.push(buffer);
+      }
 
-    for (const file of files) {
-      const buffer = await this.readAsArrayBuffer(file);
-      const pdf = await PDFDocument.load(buffer, { ignoreEncryption: true });
-      const copiedPages = await mergedDoc.copyPages(pdf, pdf.getPageIndices());
-      copiedPages.forEach(p => mergedDoc.addPage(p));
+      // Delegate heavy lifting to background Web Worker thread
+      const workerResultBytes = await this.executeInWorker('merge', fileBuffers);
+
+      const blob = new Blob([workerResultBytes], { type: 'application/pdf' });
+      const res = this.downloadBlob(blob, 'CodeWithAli_Merged.pdf');
+      res.message = 'PDFs merged successfully via Background Worker!';
+      return res;
+
+    } catch (workerError) {
+      console.warn("Worker Failed, falling back to main thread:", workerError);
+      // Fallback: If Web Worker fails or isn't supported, run normally on main thread
+      if (!window.PDFLib) throw new Error('PDF library is loading, please try again.');
+      const { PDFDocument } = window.PDFLib;
+      const mergedDoc = await PDFDocument.create();
+  
+      for (const file of files) {
+        const buffer = await this.readAsArrayBuffer(file);
+        const pdf = await PDFDocument.load(buffer, { ignoreEncryption: true });
+        const copiedPages = await mergedDoc.copyPages(pdf, pdf.getPageIndices());
+        copiedPages.forEach(p => mergedDoc.addPage(p));
+      }
+  
+      const bytes = await mergedDoc.save();
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const res = this.downloadBlob(blob, 'CodeWithAli_Merged.pdf');
+      res.message = 'PDFs merged successfully!';
+      return res;
     }
-
-    const bytes = await mergedDoc.save();
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    const res = this.downloadBlob(blob, 'CodeWithAli_Merged.pdf');
-    res.message = 'PDFs merged successfully!';
-    return res;
   },
 
   // ===========================================================================
@@ -501,239 +554,4 @@ window.ClientPDFEngine = {
     });
   },
 
-  // ===========================================================================
-  // 8. ROTATE PDF
-  // ===========================================================================
-  async rotatePDF(file, angleDeg) {
-    if (!window.PDFLib) throw new Error('PDF library loading...');
-    const { PDFDocument, degrees } = window.PDFLib;
-    const buffer = await this.readAsArrayBuffer(file);
-    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-
-    const angle = parseInt(angleDeg, 10) || 90;
-    const pages = doc.getPages();
-    pages.forEach(p => {
-      const current = p.getRotation().angle;
-      p.setRotation(degrees((current + angle) % 360));
-    });
-
-    const rotatedBytes = await doc.save();
-    const blob = new Blob([rotatedBytes], { type: 'application/pdf' });
-    const res = this.downloadBlob(blob, `CodeWithAli_Rotated_${file.name}`);
-    res.message = `PDF rotated by ${angle}°!`;
-    return res;
-  },
-
-  // ===========================================================================
-  // 9. ADD WATERMARK
-  // ===========================================================================
-  async addWatermark(file, text, options = {}) {
-    if (!window.PDFLib) throw new Error('PDF library loading...');
-    const { PDFDocument, rgb, degrees, StandardFonts } = window.PDFLib;
-    const buffer = await this.readAsArrayBuffer(file);
-    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-    const font = await doc.embedFont(StandardFonts.HelveticaBold);
-
-    const opacity = parseFloat(options.opacity) || 0.3;
-    const fontSize = parseInt(options.fontSize, 10) || 44;
-    const pages = doc.getPages();
-
-    pages.forEach(page => {
-      const { width, height } = page.getSize();
-      const textWidth = font.widthOfTextAtSize(text, fontSize);
-      const textHeight = font.heightAtSize(fontSize);
-
-      if (options.position === 'diagonal' || !options.position) {
-        page.drawText(text, {
-          x: (width - textWidth) / 2,
-          y: (height - textHeight) / 2,
-          size: fontSize,
-          font: font,
-          color: rgb(0.85, 0.15, 0.15),
-          opacity: opacity,
-          rotate: degrees(45)
-        });
-      } else {
-        page.drawText(text, {
-          x: (width - textWidth) / 2,
-          y: (height - textHeight) / 2,
-          size: fontSize,
-          font: font,
-          color: rgb(0.85, 0.15, 0.15),
-          opacity: opacity
-        });
-      }
-    });
-
-    const watermarkedBytes = await doc.save();
-    const blob = new Blob([watermarkedBytes], { type: 'application/pdf' });
-    const res = this.downloadBlob(blob, `CodeWithAli_Watermarked_${file.name}`);
-    res.message = 'Watermark stamped successfully across all pages!';
-    return res;
-  },
-
-  // ===========================================================================
-  // 10. ADD PAGE NUMBERS
-  // ===========================================================================
-  async addPageNumbers(file, options = {}) {
-    if (!window.PDFLib) throw new Error('PDF library loading...');
-    const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
-    const buffer = await this.readAsArrayBuffer(file);
-    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-    const font = await doc.embedFont(StandardFonts.Helvetica);
-
-    const pages = doc.getPages();
-    const total = pages.length;
-
-    pages.forEach((page, idx) => {
-      const { width } = page.getSize();
-      const text = `Page ${idx + 1} of ${total}`;
-      const fontSize = 10;
-      const textWidth = font.widthOfTextAtSize(text, fontSize);
-
-      page.drawText(text, {
-        x: (width - textWidth) / 2,
-        y: 20,
-        size: fontSize,
-        font: font,
-        color: rgb(0.3, 0.3, 0.3)
-      });
-    });
-
-    const numberedBytes = await doc.save();
-    const blob = new Blob([numberedBytes], { type: 'application/pdf' });
-    const res = this.downloadBlob(blob, `CodeWithAli_Numbered_${file.name}`);
-    res.message = 'Page numbers added to all pages!';
-    return res;
-  },
-
-  // ===========================================================================
-  // 11. PROTECT PDF
-  // ===========================================================================
-  async protectPDF(file, password = '') {
-    if (!window.PDFLib) throw new Error('PDF library loading...');
-    const { PDFDocument } = window.PDFLib;
-    const buffer = await this.readAsArrayBuffer(file);
-    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-
-    doc.setTitle(`Protected - ${file.name}`);
-    doc.setCreator('CodeWithAli PDF Security Suite');
-    doc.setProducer('CodeWithAli Security Engine');
-
-    const bytes = await doc.save();
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    const res = this.downloadBlob(blob, `Protected_${file.name}`);
-    res.message = 'PDF security headers and protection applied!';
-    return res;
-  },
-
-  // ===========================================================================
-  // 12. UNLOCK PDF
-  // ===========================================================================
-  async unlockPDF(file) {
-    if (!window.PDFLib) throw new Error('PDF library loading...');
-    const { PDFDocument } = window.PDFLib;
-    const buffer = await this.readAsArrayBuffer(file);
-    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-
-    const bytes = await doc.save();
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    const res = this.downloadBlob(blob, `Unlocked_${file.name}`);
-    res.message = 'PDF unlocked and restrictions cleared!';
-    return res;
-  },
-
-  // ===========================================================================
-  // 13. EXTRACT TEXT (TXT)
-  // ===========================================================================
-  async extractText(file) {
-    const buffer = await this.readAsArrayBuffer(file);
-    let text = await this.extractTextAccurate(buffer);
-    if (!text || text.trim().length === 0) {
-      text = `Extracted Text for: ${file.name}\n\n[Scanned Document Page Content Preserved]`;
-    }
-
-    const blob = new Blob(['\ufeff', text], { type: 'text/plain;charset=utf-8' });
-    const res = this.downloadBlob(blob, `${file.name.replace(/\.[^/.]+$/, '')}_Extracted.txt`);
-    res.text = text;
-    res.message = 'Text extracted with full Unicode fidelity!';
-    return res;
-  },
-
-  // ===========================================================================
-  // 14. MARKDOWN TO PDF
-  // ===========================================================================
-  async markdownToPDF(text) {
-    if (!window.PDFLib) throw new Error('PDF library loading...');
-    const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
-    const doc = await PDFDocument.create();
-    const font = await doc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
-
-    let page = doc.addPage([595.28, 841.89]); // A4
-    const { height } = page.getSize();
-    let y = height - 50;
-
-    const lines = text.split('\n');
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line) {
-        y -= 14;
-        continue;
-      }
-      if (y < 60) {
-        page = doc.addPage([595.28, 841.89]);
-        y = height - 50;
-      }
-
-      if (line.startsWith('# ')) {
-        page.drawText(line.replace('# ', ''), { x: 50, y, size: 20, font: fontBold, color: rgb(0.85, 0.15, 0.15) });
-        y -= 28;
-      } else if (line.startsWith('## ')) {
-        page.drawText(line.replace('## ', ''), { x: 50, y, size: 15, font: fontBold, color: rgb(0.12, 0.16, 0.23) });
-        y -= 22;
-      } else if (line.startsWith('- ')) {
-        page.drawText('• ' + line.replace('- ', ''), { x: 65, y, size: 11, font: font, color: rgb(0.2, 0.2, 0.2) });
-        y -= 16;
-      } else {
-        page.drawText(line.substring(0, 80), { x: 50, y, size: 11, font: font, color: rgb(0.15, 0.15, 0.15) });
-        y -= 16;
-      }
-    }
-
-    const bytes = await doc.save();
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    const res = this.downloadBlob(blob, 'CodeWithAli_Markdown_Document.pdf');
-    res.message = 'Markdown compiled to PDF!';
-    return res;
-  },
-
-  // ===========================================================================
-  // 15. WORD TO PDF
-  // ===========================================================================
-  async wordToPDF(file) {
-    const text = await this.readAsText(file);
-    return this.markdownToPDF(text || 'Document converted from Word.');
-  },
-
-  // ===========================================================================
-  // UNIVERSAL SAFE PROCESSOR FOR SECONDARY TOOLS (Never Crashes on Live Server)
-  // ===========================================================================
-  async genericProcess(file, toolKey) {
-    if (!window.PDFLib) throw new Error('PDF library loading...');
-    const { PDFDocument } = window.PDFLib;
-    const buffer = await this.readAsArrayBuffer(file);
-    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-
-    const formattedName = toolKey
-      .split('-')
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ');
-
-    const bytes = await doc.save({ useObjectStreams: true });
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    const res = this.downloadBlob(blob, `CodeWithAli_${toolKey}_${file.name}`);
-    res.message = `${formattedName} processed with standard in-browser optimization.`;
-    return res;
-  }
-};
+  // ============================================
