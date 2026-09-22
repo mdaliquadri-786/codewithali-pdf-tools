@@ -859,14 +859,19 @@
 
   <!-- Service Worker Registration for 100% Offline Capability -->
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => {
-          console.warn('Offline Service Worker note:', err);
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      // Path ko './sw.js' se '/sw.js' kar diya gaya hai
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.info('Service worker registered:', registration.scope);
+        })
+        .catch(error => {
+          console.warn('Service worker registration failed:', error);
         });
-      });
-    }
-  </script>
+    });
+  }
+</script>
   <!-- Floating Quick Capabilities Sidebar Trigger (HR / Client Evaluation) -->
   <button id="quickSpecsToggle" class="quick-specs-toggle" type="button" title="View Live Architecture & Offline Status">
     <i class="fa-solid fa-microchip"></i>
