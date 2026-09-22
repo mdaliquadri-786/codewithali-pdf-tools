@@ -15,15 +15,13 @@ jobs:
         cache: 'npm'
         
     - name: Install dependencies
-      run: npm install
+      run: npm ci
       
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps chromium
 
     - name: Wait for Vercel Deployment to Finish
-      run: |
-        echo "Waiting 90 seconds for Vercel to completely deploy the new files..."
-        sleep 90
+      run: sleep 90
       
     - name: Run Playwright tests
       run: npm run test:e2e
