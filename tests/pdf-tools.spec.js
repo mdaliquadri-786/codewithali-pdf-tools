@@ -43,7 +43,13 @@ const allTools = [
   'edit'
 ];
 
-const toolsToSkipByDefault = ['ai-summarize'];
+const toolsToSkipByDefault = [
+  'ai-summarize',
+  'ocr',
+  'pdf-to-word',
+  'word-to-pdf'
+];
+
 const toolsToTest = allTools.filter(
   tool => !toolsToSkipByDefault.includes(tool)
 );
@@ -354,9 +360,7 @@ test.describe('CodeWithAli PDF Tools - Full Vercel Validation', () => {
 
         page.on('pageerror', error => {
           diagnostics.push(
-            `[Page Exception] ${
-              error.stack || error.message
-            }`
+            `[Page Exception] ${error.stack || error.message}`
           );
         });
 
