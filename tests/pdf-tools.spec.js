@@ -19,7 +19,7 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
 
             page.on('console', message => {
                 if (message.type() === 'error') {
-                    consoleErrors.push(`[Browser Console] ${message.text()}`);
+                    consoleErrors.push(`[Browser Console Error] ${message.text()}`);
                 }
             });
 
@@ -27,7 +27,7 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                 consoleErrors.push(`[Page Exception] ${error.message}`);
             });
 
-            // Improved Error Logging for missing files
+            // HTTP 404 aur Network Failures trap karne ka correct logic
             page.on('response', response => {
                 if (response.status() >= 400) {
                     consoleErrors.push(`[HTTP ${response.status()}] ${response.url()}`);
@@ -60,14 +60,15 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                 
                 if (await errorMessage.isVisible()) {
                     const errText = await errorMessage.innerText();
-                    consoleErrors.push(`[UI Toast] ${errText}`);
+                    consoleErrors.push(`[UI Toast Error] ${errText}`);
                     return 'error';
                 }
                 
                 return 'pending';
             }, {
                 timeout: 30000,
-                message: `Processing failed. Network & Console logs:\n${consoleErrors.join('\n')}`
+                // DYNAMIC MESSAGE FIX: Evaluated exactly when it fails to print all captured 404s
+                message: () => `Processing failed. Network & Console logs:\n${consoleErrors.join('\n')}`
             }).toBe('success');
             
             const downloadHref = await page.locator('#downloadResultBtn, #downloadBtn').getAttribute('href');
