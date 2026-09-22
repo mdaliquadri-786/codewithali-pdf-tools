@@ -19,7 +19,7 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
 
             page.on('console', message => {
                 if (message.type() === 'error') {
-                    consoleErrors.push(`[Browser Console Error] ${message.text()}`);
+                    consoleErrors.push(`[Browser Console] ${message.text()}`);
                 }
             });
 
@@ -27,14 +27,10 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                 consoleErrors.push(`[Page Exception] ${error.message}`);
             });
 
-            // Advanced Network Diagnostics (To catch exactly which file gives 404)
-            page.on('requestfailed', request => {
-                consoleErrors.push(`[Request Failed] ${request.url()} - ${request.failure()?.errorText || 'unknown error'}`);
-            });
-
+            // Improved Error Logging for missing files
             page.on('response', response => {
-                if (response.status() === 404) {
-                    consoleErrors.push(`[HTTP 404] ${response.url()}`);
+                if (response.status() >= 400) {
+                    consoleErrors.push(`[HTTP ${response.status()}] ${response.url()}`);
                 }
             });
 
@@ -64,14 +60,14 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                 
                 if (await errorMessage.isVisible()) {
                     const errText = await errorMessage.innerText();
-                    consoleErrors.push(`[UI Toast Error] ${errText}`);
+                    consoleErrors.push(`[UI Toast] ${errText}`);
                     return 'error';
                 }
                 
                 return 'pending';
             }, {
                 timeout: 30000,
-                message: `PDF processing failed. Exact Errors:\n\n${consoleErrors.join('\n')}`
+                message: `Processing failed. Network & Console logs:\n${consoleErrors.join('\n')}`
             }).toBe('success');
             
             const downloadHref = await page.locator('#downloadResultBtn, #downloadBtn').getAttribute('href');
