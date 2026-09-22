@@ -11,7 +11,6 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
         }
     });
 
-    // Hum abhi in 5 main tools ko test karenge
     const tools = ['merge', 'split', 'compress', 'rotate', 'pdf-to-word'];
 
     for (const tool of tools) {
@@ -25,20 +24,20 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
             });
 
             // Vercel site ke specific tool par jayein
-            await page.goto(`/tools/${tool}`);
+            await page.goto(`https://codewithali-pdf-tools.vercel.app/tools/${tool}`);
             
-            // UI load hone ka wait karein
-            await expect(page.locator('#workspaceTitle')).toBeVisible({ timeout: 10000 });
+            // UI load hone ka wait karein (Increased timeout for Vercel cold starts)
+            await expect(page.locator('#workspaceTitle')).toBeVisible({ timeout: 15000 });
             
             // Background mein PDF file upload karein
             await page.locator('input[type="file"]').setInputFiles(dummyPdfPath);
-            await expect(page.locator('.file-card')).toBeVisible({ timeout: 5000 });
+            await expect(page.locator('.file-card')).toBeVisible({ timeout: 10000 });
             
             // Process button par click karein
             await page.locator('#actionSubmitBtn').click();
             
-            // Result screen aane ka wait karein (Max 15 seconds)
-            await expect(page.locator('#resultCard')).toBeVisible({ timeout: 15000 });
+            // Result screen aane ka wait karein (Max 20 seconds)
+            await expect(page.locator('#resultCard')).toBeVisible({ timeout: 20000 });
             
             // Agar ek bhi error record hua toh test fail ho jayega
             expect(errors.length, `UI ya Console mein errors mile: ${errors.join(', ')}`).toBe(0);
