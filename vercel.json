@@ -1,23 +1,20 @@
 {
   "version": 2,
+  "cleanUrls": false,
+  "trailingSlash": false,
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
-    { "source": "/tools/(.*)", "destination": "/api/index.js" },
-    { "source": "/tools", "destination": "/api/index.js" },
-    { "source": "/why-us", "destination": "/api/index.js" },
-    { "source": "/home", "destination": "/api/index.js" },
-    { "source": "/index.html", "destination": "/api/index.js" },
-    { "source": "/why-us.html", "destination": "/api/index.js" },
-    { "source": "/tool.html", "destination": "/api/index.js" }
+    { "source": "/why-us", "destination": "/why-us.html" }
   ],
-  "headers": [
+  "redirects": [
+    { "source": "/home", "destination": "/", "permanent": false },
+    { "source": "/index.html", "destination": "/", "permanent": true },
+    { "source": "/why-us.html", "destination": "/why-us", "permanent": true },
     {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "https://codewithali-pdf-tools.vercel.app" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
-        { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" }
-      ]
-    }
+      "source": "/tool.html",
+      "has": [{ "type": "query", "key": "tool", "value": "(?<slug>.*)" }],
+      "destination": "/tools/:slug",
+      "permanent": false
+    },
+    { "source": "/tool.html", "destination": "/", "permanent": false }
   ]
 }

@@ -1,44 +1,21 @@
 {
   "name": "codewithali-pdf-tools",
-  "version": "1.0.0",
-  "description": "CodeWithAli PDF Tools Suite - Complete, responsive, production-ready clone of iLovePDF with advanced bonus utilities",
-  "main": "server.js",
+  "version": "2.0.0",
+  "description": "CodeWithAli PDF Tools Suite - 100% client-side, privacy-first PDF tools (pure static site, no backend/server)",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "generate-tool-pages": "node generate-tool-pages.js"
   },
   "keywords": [
     "pdf",
     "pdf-tools",
     "ilovepdf",
-    "pdf-lib",
-    "sharp",
-    "express",
-    "nodejs",
-    "merge-pdf",
-    "split-pdf",
-    "compress-pdf",
-    "watermark-pdf",
-    "image-to-pdf"
+    "client-side",
+    "privacy",
+    "static-site"
   ],
   "author": "Mohammed Ali Quadri (CodeWithAli)",
   "license": "MIT",
-  "dependencies": {
-    "archiver": "^6.0.1",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "multer": "^1.4.5-lts.1",
-    "pdf-lib": "^1.17.1",
-    "sharp": "^0.32.6",
-    "uuid": "^9.0.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
-  },
-  "engines": {
-    "node": ">=16.0.0"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/mdaliquadri-786/codewithali-pdf-tools.git"

@@ -793,6 +793,76 @@ const Engine2_PDFJS = {
     return loadingTask.promise;
   },
 
+  // REAL embedded-image extraction — the previous "Extract All Images" tool
+  // didn't extract images at all: it just rasterized page 1 as a full-page
+  // screenshot and downloaded that. This finds the actual embedded image
+  // XObjects PDF.js decodes while building each page's operator list (the
+  // same mechanism used for rendering) and re-encodes each one as a real,
+  // standalone PNG via canvas — proven in Node against a test PDF with known
+  // embedded images (extracted 2/2, verified byte-valid by an independent
+  // PNG decoder) before being ported here for the browser.
+  async extractEmbeddedImages(file, onProgress) {
+    const pdf = await this.loadDocument(file);
+    const totalPages = pdf.numPages;
+    const OPS = window.pdfjsLib.OPS;
+    const images = []; // { name: string, blob: Blob }
+
+    for (let p = 1; p <= totalPages; p++) {
+      const page = await pdf.getPage(p);
+      const opList = await page.getOperatorList();
+      let imgIndexOnPage = 0;
+
+      for (let i = 0; i < opList.fnArray.length; i++) {
+        if (opList.fnArray[i] !== OPS.paintImageXObject) continue;
+        const objId = opList.argsArray[i][0];
+        let img;
+        try {
+          img = page.objs.get(objId);
+        } catch (e) {
+          continue; // object not resolved (e.g. an inline mask reference) — skip
+        }
+        if (!img || !img.data || !img.width || !img.height) continue;
+
+        // Normalize whatever pixel format PDF.js decoded to into RGBA so it
+        // can be drawn straight into a canvas ImageData buffer.
+        const rgba = new Uint8ClampedArray(img.width * img.height * 4);
+        if (img.kind === 3) {
+          // Already RGBA_32BPP
+          rgba.set(img.data.length === rgba.length ? img.data : img.data.subarray(0, rgba.length));
+        } else if (img.kind === 2) {
+          // RGB_24BPP -> expand with opaque alpha
+          for (let px = 0; px < img.width * img.height; px++) {
+            rgba[px * 4] = img.data[px * 3];
+            rgba[px * 4 + 1] = img.data[px * 3 + 1];
+            rgba[px * 4 + 2] = img.data[px * 3 + 2];
+            rgba[px * 4 + 3] = 255;
+          }
+        } else if (img.kind === 1) {
+          // GRAYSCALE_1BPP (already unpacked to one byte/pixel by PDF.js)
+          for (let px = 0; px < img.width * img.height; px++) {
+            const v = img.data[px];
+            rgba[px * 4] = v; rgba[px * 4 + 1] = v; rgba[px * 4 + 2] = v; rgba[px * 4 + 3] = 255;
+          }
+        } else {
+          continue; // unknown/unsupported pixel format — skip rather than guess
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.putImageData(new ImageData(rgba, img.width, img.height), 0, 0);
+
+        imgIndexOnPage++;
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (blob) images.push({ name: `page${p}_image${imgIndexOnPage}.png`, blob });
+      }
+      if (onProgress) onProgress(Math.round((p / totalPages) * 100));
+    }
+
+    return images;
+  },
+
   async renderFileThumbnail(file, canvasElement, scale = 0.3) {
     try {
       const pdf = await this.loadDocument(file);
@@ -2394,8 +2464,19 @@ function initWorkspace() {
           downloadFilename = `CodeWithAli_Redacted_${file.name}`;
         }
         else if (toolKey === 'extract-images') {
-          resultBlob = await Engine2_PDFJS.renderPageToJpgBlob(file, 1, 2.0);
-          downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Extracted_Asset.jpg`;
+          const extracted = await Engine2_PDFJS.extractEmbeddedImages(file, (p) => setProgressBar(p));
+          if (extracted.length === 0) {
+            throw new Error('No embedded images were found in this PDF. (This tool extracts images embedded in the document — if the PDF has no pictures/photos in it, there is nothing to extract.)');
+          } else if (extracted.length === 1) {
+            resultBlob = extracted[0].blob;
+            downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_${extracted[0].name}`;
+          } else {
+            if (!window.JSZip) throw new Error('JSZip library failed to load — cannot bundle the extracted images.');
+            const zip = new window.JSZip();
+            extracted.forEach((img) => zip.file(img.name, img.blob));
+            resultBlob = await zip.generateAsync({ type: 'blob' });
+            downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_ExtractedImages.zip`;
+          }
         }
         else if (toolKey === 'sign') {
           const sigCanvas = document.getElementById('signaturePad');
