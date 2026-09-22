@@ -121,7 +121,6 @@ self.onmessage = async function(e) {
             resultBytes = await pdfDoc.save();
         }
 
-        // Zero-copy transfer for maximum performance
         self.postMessage(
             { success: true, result: resultBytes },
             [resultBytes.buffer] 
