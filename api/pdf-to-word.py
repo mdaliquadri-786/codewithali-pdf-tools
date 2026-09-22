@@ -41,4 +41,3 @@ def pdf_to_word():
         os.close(fd_docx)
         if os.path.exists(temp_pdf): os.remove(temp_pdf)
         if os.path.exists(temp_docx): os.remove(temp_docx)
-          
