@@ -5,11 +5,13 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:
 
 jobs:
   test:
-    timeout-minutes: 15
+    name: Run live PDF tool tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -22,27 +24,40 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
-      - name: Install Playwright browsers
+      - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Wait for Vercel deployment readiness
+      - name: Wait for Vercel deployment
+        shell: bash
         run: |
-          for i in {1..30}; do
-            status=$(curl -L -s -o /dev/null -w "%{http_code}" \
-              https://codewithali-pdf-tools.vercel.app/tools/merge)
+          set -u
+
+          url="https://codewithali-pdf-tools.vercel.app/tools/merge"
+
+          for attempt in {1..30}; do
+            status=$(
+              curl \
+                --location \
+                --silent \
+                --show-error \
+                --output /dev/null \
+                --write-out "%{http_code}" \
+                "$url" || true
+            )
 
             if [ "$status" = "200" ]; then
-              echo "Vercel deployment is live and ready!"
+              echo "Vercel deployment is reachable."
               exit 0
             fi
 
-            echo "Deployment not ready yet (HTTP $status). Retrying in 10s..."
+            echo "Deployment returned HTTP $status."
+            echo "Retrying in 10 seconds... Attempt $attempt/30."
             sleep 10
           done
 
-          echo "Deployment did not become ready in time."
+          echo "Deployment did not become ready within five minutes."
           exit 1
 
       - name: Run Playwright tests
