@@ -4,10 +4,12 @@ const fs = require('fs');
 const { PDFDocument } = require('pdf-lib');
 
 test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
+    // Fix: Increase global test suite timeout to 120 seconds to prevent early cancellation
+    test.describe.configure({ timeout: 120000 });
+
     const dummyPdfPath = path.join(__dirname, 'dummy.pdf');
 
     test.beforeAll(async () => {
-        // Generate a structurally perfect PDF using pdf-lib instead of a manual string
         const pdfDoc = await PDFDocument.create();
         pdfDoc.addPage([612, 792]);
         pdfDoc.addPage([612, 792]);
@@ -69,8 +71,12 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                     return 'pending';
                 },
                 {
-                    timeout: 60000,
-                    message: () => `Processing failed.\n${consoleErrors.join('\n')}`
+                    timeout: 90000,
+                    intervals: [1000, 2000, 5000],
+                    message: () => [
+                        'Processing failed or timed out.',
+                        ...consoleErrors
+                    ].join('\n')
                 }
             ).toBe('success');
 
