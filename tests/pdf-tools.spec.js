@@ -3,8 +3,6 @@ const path = require('path');
 const fs = require('fs');
 
 test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
-    
-    // Create a larger, valid dummy PDF to ensure file size isn't skipped
     const dummyPdfPath = path.join(__dirname, 'dummy.pdf');
     test.beforeAll(() => {
         if (!fs.existsSync(dummyPdfPath)) {
@@ -13,44 +11,62 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
         }
     });
 
-    // Test a reliable subset to ensure base functionality passes
-    const tools = ['split', 'compress', 'rotate'];
+    const tools = ['merge', 'split', 'compress', 'rotate', 'pdf-to-word'];
 
     for (const tool of tools) {
         test(`Testing Tool: ${tool.toUpperCase()}`, async ({ page }) => {
-            
-            // Navigate to the live Vercel URL
+            const consoleErrors = [];
+
+            // Listen for internal browser errors
+            page.on('console', message => {
+                if (message.type() === 'error') {
+                    consoleErrors.push(`[Browser Console Error] ${message.text()}`);
+                }
+            });
+
+            page.on('pageerror', error => {
+                consoleErrors.push(`[Page Exception] ${error.message}`);
+            });
+
             await page.goto(`https://codewithali-pdf-tools.vercel.app/tools/${tool}`);
+            await expect(page.locator('#workspaceTitle')).toBeVisible({ timeout: 15000 });
             
-            // Wait for the workspace to fully initialize
-            await page.waitForSelector('#workspaceTitle', { state: 'visible', timeout: 15000 });
-            
-            // Wait for the dropzone or file input area to be ready
-            await page.waitForSelector('.upload-area, #dropzone', { state: 'visible', timeout: 10000 });
-            
-            // Set the file directly to the hidden file input
             const fileInput = page.locator('input[type="file"]');
             await fileInput.setInputFiles(dummyPdfPath);
-            
-            // Force evaluate a change event in case the frontend framework missed it
             await fileInput.evaluate(el => el.dispatchEvent(new Event('change', { bubbles: true })));
 
-            // Wait for the file card to render, indicating successful upload parsing
-            await page.waitForSelector('.file-card', { state: 'visible', timeout: 10000 });
+            await expect(page.locator('.file-card')).toBeVisible({ timeout: 10000 });
+
+            if (tool === 'pdf-to-word') {
+                const imageRadio = page.locator('input[name="wordMode"][value="image"]');
+                if (await imageRadio.isVisible()) {
+                    await imageRadio.check();
+                }
+            }
             
-            // Ensure the submit button is enabled before clicking
-            const submitBtn = page.locator('#actionSubmitBtn');
-            await expect(submitBtn).toBeEnabled({ timeout: 5000 });
+            await page.locator('#actionSubmitBtn').click();
             
-            // Click process
-            await submitBtn.click();
+            const resultCard = page.locator('#resultCard');
+            const errorMessage = page.locator('.toast-error'); // Checks for your custom UI error toaster
+
+            // Polling mechanism to immediately catch if it fails, rather than waiting 30 seconds
+            await expect.poll(async () => {
+                if (await resultCard.isVisible()) return 'success';
+                
+                if (await errorMessage.isVisible()) {
+                    const errText = await errorMessage.innerText();
+                    consoleErrors.push(`[UI Toast Error] ${errText}`);
+                    return 'error';
+                }
+                
+                return 'pending';
+            }, {
+                timeout: 30000,
+                message: `PDF processing failed. Here are the exact errors captured:\n\n${consoleErrors.join('\n')}`
+            }).toBe('success');
             
-            // Wait for processing to complete and the result card to appear
-            await page.waitForSelector('#resultCard', { state: 'visible', timeout: 30000 });
-            
-            // Verify a valid download link was generated
-            const downloadBtn = page.locator('#downloadResultBtn, #downloadBtn');
-            await expect(downloadBtn).toHaveAttribute('href', /^(blob:|data:)/, { timeout: 5000 });
+            const downloadHref = await page.locator('#downloadResultBtn, #downloadBtn').getAttribute('href');
+            expect(downloadHref).toMatch(/^(blob:|data:)/);
         });
     }
 });
