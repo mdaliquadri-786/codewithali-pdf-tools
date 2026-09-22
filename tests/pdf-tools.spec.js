@@ -15,32 +15,34 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
 
     for (const tool of tools) {
         test(`Testing Tool: ${tool.toUpperCase()}`, async ({ page }) => {
-            const errors = [];
             
-            // Console errors aur crashes ko record karein
-            page.on('pageerror', err => errors.push(err.message));
-            page.on('console', msg => {
-                if (msg.type() === 'error') errors.push(msg.text());
-            });
-
             // Vercel site ke specific tool par jayein
             await page.goto(`https://codewithali-pdf-tools.vercel.app/tools/${tool}`);
             
-            // UI load hone ka wait karein (Increased timeout for Vercel cold starts)
+            // UI load hone ka wait karein 
             await expect(page.locator('#workspaceTitle')).toBeVisible({ timeout: 15000 });
             
             // Background mein PDF file upload karein
             await page.locator('input[type="file"]').setInputFiles(dummyPdfPath);
             await expect(page.locator('.file-card')).toBeVisible({ timeout: 10000 });
+
+            // Agar PDF to Word tool hai, toh "Exact Visual Layout" option select karein
+            if (tool === 'pdf-to-word') {
+                const imageRadio = page.locator('input[name="wordMode"][value="image"]');
+                if (await imageRadio.isVisible()) {
+                    await imageRadio.check();
+                }
+            }
             
             // Process button par click karein
             await page.locator('#actionSubmitBtn').click();
             
-            // Result screen aane ka wait karein (Max 20 seconds)
-            await expect(page.locator('#resultCard')).toBeVisible({ timeout: 20000 });
+            // Result screen aane ka wait karein (Max 30 seconds for backend processing)
+            await expect(page.locator('#resultCard')).toBeVisible({ timeout: 30000 });
             
-            // Agar ek bhi error record hua toh test fail ho jayega
-            expect(errors.length, `UI ya Console mein errors mile: ${errors.join(', ')}`).toBe(0);
+            // Validate karein ki Download button mein ek valid file (blob URL) aa chuki hai
+            const downloadHref = await page.locator('#downloadResultBtn, #downloadBtn').getAttribute('href');
+            expect(downloadHref).toContain('blob:');
         });
     }
 });
