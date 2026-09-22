@@ -1,20 +1,19 @@
 {
   "version": 2,
-  "cleanUrls": false,
-  "trailingSlash": false,
+  "cleanUrls": true,
   "rewrites": [
-    { "source": "/why-us", "destination": "/why-us.html" }
-  ],
-  "redirects": [
-    { "source": "/home", "destination": "/", "permanent": false },
-    { "source": "/index.html", "destination": "/", "permanent": true },
-    { "source": "/why-us.html", "destination": "/why-us", "permanent": true },
     {
-      "source": "/tool.html",
-      "has": [{ "type": "query", "key": "tool", "value": "(?<slug>.*)" }],
-      "destination": "/tools/:slug",
-      "permanent": false
-    },
-    { "source": "/tool.html", "destination": "/", "permanent": false }
+      "source": "/tools/(.*)",
+      "destination": "/tool.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" }
+      ]
+    }
   ]
 }
