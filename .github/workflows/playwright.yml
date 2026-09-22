@@ -20,8 +20,19 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps chromium
 
-    - name: Wait for Vercel Deployment to Finish
-      run: sleep 90
+    - name: Wait for Vercel deployment readiness
+      run: |
+        for i in {1..30}; do
+          status=$(curl -L -s -o /dev/null -w "%{http_code}" https://codewithali-pdf-tools.vercel.app/tools/merge)
+          if [ "$status" = "200" ]; then
+            echo "Vercel deployment is live and ready!"
+            exit 0
+          fi
+          echo "Deployment not ready yet (HTTP $status). Retrying in 10s..."
+          sleep 10
+        done
+        echo "Deployment did not become ready in time."
+        exit 1
       
     - name: Run Playwright tests
       run: npm run test:e2e
