@@ -1,163 +1,60 @@
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const fs = require('fs');
-const { PDFDocument } = require('pdf-lib');
+name: Automated PDF Tools Tester
 
-test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
-    test.describe.configure({ timeout: 120000 });
+on:
+  push:
+    branches:
+      - main
+      - master
 
-    const dummyPdfPath = path.join(__dirname, 'dummy.pdf');
+jobs:
+  test:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
 
-    test.beforeAll(async () => {
-        const pdfDoc = await PDFDocument.create();
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-        pdfDoc.addPage([612, 792]);
-        pdfDoc.addPage([612, 792]);
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-        const pdfBytes = await pdfDoc.save();
-        fs.writeFileSync(dummyPdfPath, pdfBytes);
-    });
+      - name: Install dependencies
+        run: npm ci
 
-    const tools = [
-        'merge',
-        'split',
-        'compress',
-        'rotate',
-        'pdf-to-word'
-    ];
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
 
-    for (const tool of tools) {
-        test(`Testing Tool: ${tool.toUpperCase()}`, async ({ page }) => {
-            const consoleErrors = [];
+      - name: Wait for Vercel deployment readiness
+        run: |
+          for i in {1..30}; do
+            status=$(curl -L -s -o /dev/null -w "%{http_code}" \
+              https://codewithali-pdf-tools.vercel.app/tools/merge)
 
-            page.on('console', (message) => {
-                if (message.type() === 'error') {
-                    consoleErrors.push(
-                        `[Browser Console Error] ${message.text()}`
-                    );
-                }
-            });
+            if [ "$status" = "200" ]; then
+              echo "Vercel deployment is live and ready!"
+              exit 0
+            fi
 
-            page.on('pageerror', (error) => {
-                consoleErrors.push(
-                    `[Page Exception] ${error.message}`
-                );
-            });
+            echo "Deployment not ready yet (HTTP $status). Retrying in 10s..."
+            sleep 10
+          done
 
-            page.on('response', async (response) => {
-                if (response.status() >= 400) {
-                    let body = '';
+          echo "Deployment did not become ready in time."
+          exit 1
 
-                    try {
-                        body = await response.text();
-                    } catch {
-                        body = '<response body unavailable>';
-                    }
+      - name: Run Playwright tests
+        run: npm run test:e2e
 
-                    consoleErrors.push(
-                        `[HTTP ${response.status()}] ${response.url()}\n${body}`
-                    );
-                }
-            });
-
-            await page.goto(
-                `https://codewithali-pdf-tools.vercel.app/tools/${tool}`,
-                {
-                    waitUntil: 'domcontentloaded',
-                    timeout: 30000
-                }
-            );
-
-            await expect(
-                page.locator('#workspaceTitle')
-            ).toBeVisible({
-                timeout: 15000
-            });
-
-            const fileInput = page.locator('input[type="file"]');
-
-            await expect(fileInput).toBeAttached({
-                timeout: 10000
-            });
-
-            await fileInput.setInputFiles(dummyPdfPath);
-
-            await expect(
-                page.locator('.file-card')
-            ).toBeVisible({
-                timeout: 10000
-            });
-
-            if (tool === 'pdf-to-word') {
-                const imageRadio = page.locator(
-                    'input[name="wordMode"][value="image"]'
-                );
-
-                if (await imageRadio.isVisible()) {
-                    await imageRadio.check();
-                }
-            }
-
-            const submitButton = page.locator('#actionSubmitBtn');
-
-            await expect(submitButton).toBeEnabled({
-                timeout: 10000
-            });
-
-            await submitButton.click();
-
-            const resultCard = page.locator('#resultCard');
-            const errorMessage = page.locator('.toast-error');
-
-            /*
-             * expect.poll() returns a Playwright assertion object.
-             * Therefore, the matcher must be chained directly to it.
-             */
-            await expect
-                .poll(
-                    async () => {
-                        if (await resultCard.isVisible()) {
-                            return 'success';
-                        }
-
-                        if (await errorMessage.isVisible()) {
-                            const errorText = (
-                                await errorMessage.innerText()
-                            ).trim();
-
-                            return `error: ${errorText}`;
-                        }
-
-                        return 'pending';
-                    },
-                    {
-                        timeout: 90000,
-                        intervals: [1000, 2000, 5000],
-                        message: () => [
-                            `Tool: ${tool}`,
-                            'Processing failed or timed out.',
-                            ...consoleErrors
-                        ].join('\n')
-                    }
-                )
-                .toBe('success');
-
-            /*
-             * Wait for the download link and for its href to be populated.
-             * .first() avoids ambiguity if both fallback IDs exist in the DOM.
-             */
-            const downloadLink = page
-                .locator('#downloadResultBtn, #downloadBtn')
-                .first();
-
-            await expect(downloadLink).toBeVisible({
-                timeout: 10000
-            });
-
-            await expect(downloadLink).toHaveAttribute(
-                'href',
-                /^(blob:|data:)/
-            );
-        });
-    }
-});
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            artifacts/
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
