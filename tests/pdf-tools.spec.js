@@ -4,6 +4,7 @@ const fs = require('fs');
 const { PDFDocument } = require('pdf-lib');
 
 const baseUrl = 'https://codewithali-pdf-tools.vercel.app';
+
 const tools = [
     'merge',
     'split',
@@ -12,20 +13,19 @@ const tools = [
     'pdf-to-word'
 ];
 
-const testDirectory = __dirname;
 const artifactsDirectory = path.join(
-    testDirectory,
+    __dirname,
     '..',
     'artifacts'
 );
 
 const firstPdfPath = path.join(
-    testDirectory,
+    __dirname,
     'dummy-first.pdf'
 );
 
 const secondPdfPath = path.join(
-    testDirectory,
+    __dirname,
     'dummy-second.pdf'
 );
 
@@ -106,22 +106,6 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                     }
                 });
 
-                const saveFailureScreenshot = async () => {
-                    fs.mkdirSync(artifactsDirectory, {
-                        recursive: true
-                    });
-
-                    const screenshotPath = path.join(
-                        artifactsDirectory,
-                        `${tool}-failure.png`
-                    );
-
-                    await page.screenshot({
-                        path: screenshotPath,
-                        fullPage: true
-                    });
-                };
-
                 try {
                     await page.goto(
                         `${baseUrl}/tools/${tool}`,
@@ -145,10 +129,6 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                         timeout: 10000
                     });
 
-                    /*
-                     * Merge requires at least two separate PDF files.
-                     * The other tools use one PDF.
-                     */
                     if (tool === 'merge') {
                         await fileInput.setInputFiles([
                             firstPdfPath,
@@ -241,8 +221,20 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                         }
                     );
                 } catch (error) {
+                    fs.mkdirSync(artifactsDirectory, {
+                        recursive: true
+                    });
+
+                    const screenshotPath = path.join(
+                        artifactsDirectory,
+                        `${tool}-failure.png`
+                    );
+
                     try {
-                        await saveFailureScreenshot();
+                        await page.screenshot({
+                            path: screenshotPath,
+                            fullPage: true
+                        });
                     } catch (screenshotError) {
                         diagnostics.push(
                             [
