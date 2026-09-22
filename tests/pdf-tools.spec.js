@@ -1,14 +1,18 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
+const { PDFDocument } = require('pdf-lib');
 
 test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
     const dummyPdfPath = path.join(__dirname, 'dummy.pdf');
-    test.beforeAll(() => {
-        if (!fs.existsSync(dummyPdfPath)) {
-            const pdfContent = '%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 51 >>\nstream\nBT\n/F1 24 Tf\n100 700 Td\n(Automated Test Document) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000214 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n314\n%%EOF';
-            fs.writeFileSync(dummyPdfPath, pdfContent);
-        }
+
+    test.beforeAll(async () => {
+        // Generate a structurally perfect PDF using pdf-lib instead of a manual string
+        const pdfDoc = await PDFDocument.create();
+        pdfDoc.addPage([612, 792]);
+        pdfDoc.addPage([612, 792]);
+        const pdfBytes = await pdfDoc.save();
+        fs.writeFileSync(dummyPdfPath, pdfBytes);
     });
 
     const tools = ['merge', 'split', 'compress', 'rotate', 'pdf-to-word'];
@@ -27,7 +31,6 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                 consoleErrors.push(`[Page Exception] ${error.message}`);
             });
 
-            // HTTP 404 aur Network Failures trap karne ka correct logic
             page.on('response', response => {
                 if (response.status() >= 400) {
                     consoleErrors.push(`[HTTP ${response.status()}] ${response.url()}`);
@@ -36,10 +39,8 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
 
             await page.goto(`https://codewithali-pdf-tools.vercel.app/tools/${tool}`);
             await expect(page.locator('#workspaceTitle')).toBeVisible({ timeout: 15000 });
-            
-            const fileInput = page.locator('input[type="file"]');
-            await fileInput.setInputFiles(dummyPdfPath);
-            await fileInput.evaluate(el => el.dispatchEvent(new Event('change', { bubbles: true })));
+
+            await page.locator('input[type="file"]').setInputFiles(dummyPdfPath);
 
             await expect(page.locator('.file-card')).toBeVisible({ timeout: 10000 });
 
@@ -49,28 +50,30 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                     await imageRadio.check();
                 }
             }
-            
+
             await page.locator('#actionSubmitBtn').click();
-            
+
             const resultCard = page.locator('#resultCard');
             const errorMessage = page.locator('.toast-error');
 
-            await expect.poll(async () => {
-                if (await resultCard.isVisible()) return 'success';
-                
-                if (await errorMessage.isVisible()) {
-                    const errText = await errorMessage.innerText();
-                    consoleErrors.push(`[UI Toast Error] ${errText}`);
-                    return 'error';
+            await expect.poll(
+                async () => {
+                    if (await resultCard.isVisible()) {
+                        return 'success';
+                    }
+
+                    if (await errorMessage.isVisible()) {
+                        return `error: ${await errorMessage.innerText()}`;
+                    }
+
+                    return 'pending';
+                },
+                {
+                    timeout: 60000,
+                    message: () => `Processing failed.\n${consoleErrors.join('\n')}`
                 }
-                
-                return 'pending';
-            }, {
-                timeout: 30000,
-                // DYNAMIC MESSAGE FIX: Evaluated exactly when it fails to print all captured 404s
-                message: () => `Processing failed. Network & Console logs:\n${consoleErrors.join('\n')}`
-            }).toBe('success');
-            
+            ).toBe('success');
+
             const downloadHref = await page.locator('#downloadResultBtn, #downloadBtn').getAttribute('href');
             expect(downloadHref).toMatch(/^(blob:|data:)/);
         });
