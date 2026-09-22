@@ -28,13 +28,13 @@ const OOXMLBuilder = {
       const crc = crc32(dataBytes);
       const size = dataBytes.length;
 
-      // Local file header (30 + nameBytes.length)
+      // Local file header
       const header = new Uint8Array(30 + nameBytes.length);
       const view = new DataView(header.buffer);
       view.setUint32(0, 0x04034b50, true);
       view.setUint16(4, 20, true);
       view.setUint16(6, 0, true);
-      view.setUint16(8, 0, true); // Stored (0)
+      view.setUint16(8, 0, true); 
       view.setUint16(10, 0, true);
       view.setUint16(12, 0, true);
       view.setUint32(14, crc, true);
@@ -107,7 +107,13 @@ const OOXMLBuilder = {
     let pXml = '';
     paragraphs.forEach(p => {
       const text = String(p).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      pXml += `<w:p><w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`;
+      
+      // SMART RTL SHAPING FIX: Automatically triggers Word's Arabic layout engine
+      const isRTL = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text);
+      const pPr = isRTL ? `<w:pPr><w:bidi w:val="1"/><w:jc w:val="right"/></w:pPr>` : '';
+      const rPr = isRTL ? `<w:rPr><w:rtl w:val="1"/><w:cs w:val="1"/></w:rPr>` : '';
+      
+      pXml += `<w:p>${pPr}<w:r>${rPr}<w:t xml:space="preserve">${text}</w:t></w:r></w:p>`;
     });
 
     const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -192,9 +198,7 @@ const OOXMLBuilder = {
 };
 
 /**
- * CodeWithAli PDF Tools Suite - Client-Side Architecture v16.0 (Production Verified)
- * 100% In-Browser Zero-Server-Upload Architecture (plus Vercel Python API Hybrid support)
- * Multilingual Support: Arabic, Urdu, Telugu, Hindi, English, and all World Scripts
+ * CodeWithAli PDF Tools Suite - Client-Side Architecture v17.0 (Production Verified)
  */
 
 // =============================================================================
@@ -233,9 +237,7 @@ function initSignatureCanvas() {
     ctx.stroke();
   }
 
-  function end() {
-    drawing = false;
-  }
+  function end() { drawing = false; }
 
   canvas.addEventListener('mousedown', start);
   canvas.addEventListener('mousemove', move);
@@ -268,27 +270,21 @@ function initSignatureCanvas() {
 // =============================================================================
 const MemoryManager = {
   activeUrls: new Set(),
-
   createTrackedUrl(blob) {
     const url = URL.createObjectURL(blob);
     this.activeUrls.add(url);
     return url;
   },
-
   revoke(url) {
     if (url && this.activeUrls.has(url)) {
       URL.revokeObjectURL(url);
       this.activeUrls.delete(url);
     }
   },
-
   disposeAll() {
-    this.activeUrls.forEach(url => {
-      try { URL.revokeObjectURL(url); } catch (e) {}
-    });
+    this.activeUrls.forEach(url => { try { URL.revokeObjectURL(url); } catch (e) {} });
     this.activeUrls.clear();
   },
-
   clearCanvas(canvas) {
     if (!canvas || !canvas.getContext) return;
     try {
@@ -301,7 +297,7 @@ const MemoryManager = {
 };
 
 // =============================================================================
-// 3. ENGINE 1: BINARY PDF MANIPULATION (pdf-lib fallback for tools not in Worker yet)
+// 3. ENGINE 1: BINARY PDF MANIPULATION (pdf-lib)
 // =============================================================================
 const Engine1_PDFLib = {
   async ensureLibrary() {
@@ -317,7 +313,7 @@ const Engine1_PDFLib = {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error(`Failed to read file "${file.name}" into browser memory.`));
+      reader.onerror = reject;
       reader.readAsArrayBuffer(file);
     });
   },
@@ -326,7 +322,7 @@ const Engine1_PDFLib = {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error(`Failed to read text file "${file.name}".`));
+      reader.onerror = reject;
       reader.readAsText(file);
     });
   },
@@ -335,7 +331,7 @@ const Engine1_PDFLib = {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error(`Failed to encode file "${file.name}" to Data URI.`));
+      reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   },
@@ -347,7 +343,6 @@ const Engine1_PDFLib = {
     return doc.getPageCount();
   },
 
-  // Remaining tools not ported to Web Worker logic directly mapped here
   async deletePages(file, pagesToDeleteIndices = []) {
     const { PDFDocument } = await this.ensureLibrary();
     const buffer = await this.readFileAsArrayBuffer(file);
@@ -454,7 +449,7 @@ const Engine1_PDFLib = {
 };
 
 // =============================================================================
-// 4. ENGINE 2: VISUAL RENDERING PIPELINE & CONCURRENCY LIMITER (pdfjs-dist)
+// 4. ENGINE 2: VISUAL RENDERING PIPELINE (pdfjs-dist)
 // =============================================================================
 const Engine2_PDFJS = {
   isConfigured: false,
@@ -474,9 +469,7 @@ const Engine2_PDFJS = {
 
   async loadDocument(file) {
     this.ensureWorker();
-    if (!window.pdfjsLib) {
-      throw new Error('Mozilla PDF.js library is loading. Please try again.');
-    }
+    if (!window.pdfjsLib) throw new Error('Mozilla PDF.js library is loading. Please try again.');
     const buffer = await Engine1_PDFLib.readFileAsArrayBuffer(file);
     const loadingTask = window.pdfjsLib.getDocument({
       data: buffer,
@@ -777,7 +770,7 @@ const Engine2_PDFJS = {
 };
 
 // =============================================================================
-// 5. CLIENT-SIDE AI NLP ENGINE (100% On-Device Heuristic Synthesis)
+// 5. CLIENT-SIDE AI NLP ENGINE (100% On-Device)
 // =============================================================================
 const ClientAIEngine = {
   cleanSentences(text) {
@@ -1327,9 +1320,9 @@ const TOOLS = {
   },
 
   'pdf-to-word': {
-    name: 'PDF to Word-Compatible Document (.doc)',
+    name: 'PDF to Word (.docx)',
     icon: 'fa-file-word',
-    desc: 'Export semantic document structure with UTF-8 BOM encoding for Microsoft Word and LibreOffice. Note: Generates universal .doc format rather than binary .docx.',
+    desc: 'Export semantic document structure to Microsoft Word. For complex Arabic/Urdu fonts, select "Exact Visual Layout" to guarantee zero broken characters.',
     accept: '.pdf,application/pdf',
     multiple: false,
     minFiles: 1,
@@ -1337,10 +1330,23 @@ const TOOLS = {
     status: 'optimized',
     renderOptions: () => `
       <div class="option-group">
-        <label class="option-label">Export Format</label>
-        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">
-          Produces semantic Word (.doc) with UTF-8 BOM encoding. Opens cleanly in Microsoft Word and LibreOffice with full Arabic/Urdu typography.
-        </p>
+        <label class="option-label">Conversion Engine</label>
+        <div class="radio-cards">
+          <label class="radio-card selected">
+            <input type="radio" name="wordMode" value="text" checked>
+            <div class="radio-card-info">
+              <strong>Editable Text (Standard)</strong>
+              <small>Extracts text streams. May break custom fonts.</small>
+            </div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="wordMode" value="image">
+            <div class="radio-card-info">
+              <strong>Exact Visual Layout (Safe)</strong>
+              <small>100% perfect Arabic/Urdu. Pages saved as images.</small>
+            </div>
+          </label>
+        </div>
       </div>
     `
   },
@@ -1562,18 +1568,14 @@ const TOOLS = {
   }
 };
 
-// Tool helper function
 function getRequestedToolKey() {
   const urlParams = new URLSearchParams(window.location.search);
   const paramTool = urlParams.get('tool');
   if (paramTool) return paramTool.toLowerCase().trim();
-
   const pathMatch = window.location.pathname.match(/\/tools\/([a-z0-9-]+)/i);
   if (pathMatch && pathMatch[1]) return pathMatch[1].toLowerCase().trim();
-
   const hashMatch = window.location.hash.match(/#\/?([a-z0-9-]+)/i);
   if (hashMatch && hashMatch[1]) return hashMatch[1].toLowerCase().trim();
-
   return null;
 }
 
@@ -1588,12 +1590,11 @@ function getToolConfig(toolKey) {
 function initWorkspace() {
   const workspaceBody = document.getElementById('workspaceBody');
   const notFoundView = document.getElementById('toolNotFoundView');
-  if (!workspaceBody) return; // Not on tool.html
+  if (!workspaceBody) return; 
 
   const toolKey = getRequestedToolKey();
   const toolConfig = getToolConfig(toolKey);
 
-  // Handle Invalid or Missing Tool Route
   if (!toolKey || !toolConfig) {
     if (notFoundView) {
       notFoundView.style.display = 'block';
@@ -1605,30 +1606,18 @@ function initWorkspace() {
           : 'Please select a tool from the suite to begin document processing.';
       }
       document.title = 'Tool Not Found | CodeWithAli PDF Tools Suite';
-      const breadcrumb = document.getElementById('breadcrumbToolName');
-      if (breadcrumb) breadcrumb.textContent = 'Tool Not Found';
-      const title = document.getElementById('workspaceTitle');
-      if (title) title.textContent = 'Select a Valid PDF Tool';
-      const desc = document.getElementById('workspaceDesc');
-      if (desc) desc.textContent = 'Explore our catalog of 32+ high-performance PDF utilities.';
     }
     return;
   }
 
-  // Valid tool route: Show workspace
   if (notFoundView) notFoundView.style.display = 'none';
   workspaceBody.style.display = 'grid';
 
-  // Highlight active nav item
   document.querySelectorAll('.nav-menu .nav-link').forEach(link => {
-    if (link.getAttribute('data-tool') === toolKey) {
-      link.classList.add('active');
-    } else {
-      link.classList.remove('active');
-    }
+    if (link.getAttribute('data-tool') === toolKey) link.classList.add('active');
+    else link.classList.remove('active');
   });
 
-  // Populate workspace headers
   document.title = `${toolConfig.name} | CodeWithAli PDF Tools Suite`;
   const breadcrumb = document.getElementById('breadcrumbToolName');
   if (breadcrumb) breadcrumb.textContent = toolConfig.name;
@@ -1639,7 +1628,6 @@ function initWorkspace() {
   const actionBtnText = document.getElementById('actionBtnText');
   if (actionBtnText) actionBtnText.textContent = toolConfig.btnText;
 
-  // Status badge
   const statusBadge = document.getElementById('workspaceStatusBadge');
   if (statusBadge) {
     if (toolConfig.status === 'optimized') {
@@ -1650,18 +1638,14 @@ function initWorkspace() {
   }
 
   const titleIcon = document.getElementById('optionsTitleIcon');
-  if (titleIcon && toolConfig.icon) {
-    titleIcon.className = `fa-solid ${toolConfig.icon}`;
-  }
+  if (titleIcon && toolConfig.icon) titleIcon.className = `fa-solid ${toolConfig.icon}`;
 
-  // Render options sidebar
   const optionsContainer = document.getElementById('dynamicOptionsContainer');
   if (optionsContainer && toolConfig.renderOptions) {
     optionsContainer.innerHTML = toolConfig.renderOptions();
     if (toolConfig.postRender) toolConfig.postRender();
   }
 
-  // Input setup
   const fileInput = document.getElementById('fileInput');
   if (fileInput) {
     fileInput.accept = toolConfig.accept;
@@ -1687,43 +1671,29 @@ function initWorkspace() {
     }
   }
 
-  // State
   let uploadedFiles = [];
   let pageGridState = null;
 
   const selectFilesBtn = document.getElementById('selectFilesBtn');
-  if (selectFilesBtn && fileInput) {
-    selectFilesBtn.onclick = () => fileInput.click();
-  }
+  if (selectFilesBtn && fileInput) selectFilesBtn.onclick = () => fileInput.click();
 
   const addMoreBtn = document.getElementById('addMoreFilesBtn');
-  if (addMoreBtn && fileInput) {
-    addMoreBtn.onclick = () => fileInput.click();
-  }
+  if (addMoreBtn && fileInput) addMoreBtn.onclick = () => fileInput.click();
 
   const dropzone = document.getElementById('dropzone');
   if (dropzone && fileInput) {
-    dropzone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropzone.classList.add('drag-active');
-    });
-    dropzone.addEventListener('dragleave', () => {
-      dropzone.classList.remove('drag-active');
-    });
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag-active'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-active'));
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropzone.classList.remove('drag-active');
-      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        handleFileSelection(Array.from(e.dataTransfer.files));
-      }
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) handleFileSelection(Array.from(e.dataTransfer.files));
     });
   }
 
   if (fileInput) {
     fileInput.onchange = (e) => {
-      if (e.target.files && e.target.files.length > 0) {
-        handleFileSelection(Array.from(e.target.files));
-      }
+      if (e.target.files && e.target.files.length > 0) handleFileSelection(Array.from(e.target.files));
     };
   }
 
@@ -1749,9 +1719,7 @@ function initWorkspace() {
       if (validFiles.length > 0) uploadedFiles = [validFiles[0]];
     } else {
       validFiles.forEach(nf => {
-        if (!uploadedFiles.some(f => f.name === nf.name && f.size === nf.size)) {
-          uploadedFiles.push(nf);
-        }
+        if (!uploadedFiles.some(f => f.name === nf.name && f.size === nf.size)) uploadedFiles.push(nf);
       });
     }
 
@@ -1772,9 +1740,7 @@ function initWorkspace() {
       return;
     }
 
-    if (dropzone && !toolConfig.multiple) {
-      dropzone.style.display = 'none';
-    }
+    if (dropzone && !toolConfig.multiple) dropzone.style.display = 'none';
 
     fileListWrapper.style.display = 'block';
     if (fileCountBadge) fileCountBadge.textContent = uploadedFiles.length;
@@ -1864,9 +1830,7 @@ function initWorkspace() {
         showDeleteBtn: toolKey === 'organize',
         onSelectionChanged: (selectedIndices) => {
           const rangeInput = document.getElementById('splitRangeInput');
-          if (rangeInput) {
-            rangeInput.value = indicesToRangeString(selectedIndices);
-          }
+          if (rangeInput) rangeInput.value = indicesToRangeString(selectedIndices);
         }
       });
 
@@ -1895,7 +1859,6 @@ function initWorkspace() {
         let resultBlob = null;
         let downloadFilename = 'CodeWithAli_Document.pdf';
         const file = uploadedFiles[0];
-        
         const engine = window.ClientPDFEngine; 
 
         if (toolKey === 'merge') {
@@ -2077,36 +2040,43 @@ function initWorkspace() {
           downloadFilename = 'CodeWithAli_Markdown.pdf';
         }
         else if (toolKey === 'pdf-to-word') {
-          if (engine && engine.pdfToWord) {
+          const mode = document.querySelector('input[name="wordMode"]:checked')?.value || 'text';
+          
+          if (mode === 'image') {
+             // Exact Visual Layout (Image based fallback for complex PDFs)
+             const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+             const buffer = await Engine1_PDFLib.readFileAsArrayBuffer(file);
+             let docBodyContent = '';
+             
+             if (window.pdfjsLib) {
+               const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
+               const pdf = await loadingTask.promise;
+               for (let p = 1; p <= pdf.numPages; p++) {
+                 const pageDataUrl = await window.ClientPDFEngine.renderPageToDataUrl(pdf, p, 1.5);
+                 docBodyContent += `<div style="text-align: center; margin-bottom: 20px; page-break-after: always;"><img src="${pageDataUrl}" style="max-width: 100%; border: 1px solid #ccc;" /></div>`;
+               }
+             }
+             
+             const wordDocHTML = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${baseName}</title></head><body style="margin: 0; padding: 0;">${docBodyContent}</body></html>`;
+             resultBlob = new Blob(['\ufeff', wordDocHTML], { type: 'application/msword;charset=utf-8' });
+             downloadFilename = `${baseName}_Exact_Layout.doc`;
+          } 
+          else if (engine && engine.pdfToWord) {
              try {
-               // 1. Try Hybrid Backend Execution Route for Vercel 
                const res = await engine.pdfToWord(file);
                showResultScreen(res, toolConfig);
                return;
              } catch (backendError) {
-               console.warn("Backend API failed (PyMuPDF limit), falling back to Local JS Converter...", backendError);
-               showToast("Complex layout detected. Using local browser engine for safe extraction...", "info");
+               console.warn("Backend API failed, falling back to Local JS Converter...", backendError);
+               showToast("Complex layout detected. Using local browser engine...", "info");
                
-               // 2. Client Side Fallback (Zero crash guarantee)
+               // Client Side Fallback (Text Mode with New RTL BIDI Tags)
                const buf = await Engine1_PDFLib.readFileAsArrayBuffer(file);
-               let rawText = '';
-               if (window.ClientPDFEngine) {
-                 rawText = await window.ClientPDFEngine.extractTextAccurate(buf);
-               }
+               let rawText = await window.ClientPDFEngine.extractTextAccurate(buf);
                const paragraphs = (rawText || 'Converted Document Content').split('\n').filter(Boolean);
                resultBlob = OOXMLBuilder.buildDocx(paragraphs, file.name);
                downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.docx`;
              }
-          } else {
-            // 2. Client Side Fallback
-            const buf = await Engine1_PDFLib.readFileAsArrayBuffer(file);
-            let rawText = '';
-            if (window.ClientPDFEngine) {
-              rawText = await window.ClientPDFEngine.extractTextAccurate(buf);
-            }
-            const paragraphs = (rawText || 'Converted Document Content').split('\n').filter(Boolean);
-            resultBlob = OOXMLBuilder.buildDocx(paragraphs, file.name);
-            downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.docx`;
           }
         }
         else if (toolKey === 'ocr' && window.ClientPDFEngine) {
@@ -2332,13 +2302,9 @@ function showToast(message, type = 'info') {
   }, 4000);
 }
 
-// -----------------------------------------------------------------------------
-// Theme & Search Initializer
-// -----------------------------------------------------------------------------
 function initTheme() {
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   if (!themeToggleBtn) return;
-
   const currentTheme = localStorage.getItem('cwa_theme') || 'light';
   document.documentElement.setAttribute('data-theme', currentTheme);
   updateThemeIcon(themeToggleBtn, currentTheme);
@@ -2353,18 +2319,14 @@ function initTheme() {
 }
 
 function updateThemeIcon(btn, theme) {
-  btn.innerHTML = theme === 'dark' 
-    ? '<i class="fa-solid fa-sun" style="color: #f59e0b;"></i>' 
-    : '<i class="fa-solid fa-moon"></i>';
+  btn.innerHTML = theme === 'dark' ? '<i class="fa-solid fa-sun" style="color: #f59e0b;"></i>' : '<i class="fa-solid fa-moon"></i>';
 }
 
 function initSearchAndFilters() {
   const searchInput = document.getElementById('toolSearchInput');
   const filterPills = document.querySelectorAll('.filter-pill');
   const toolCards = document.querySelectorAll('.tool-card');
-
   if (!searchInput && filterPills.length === 0) return;
-
   let currentCategory = 'all';
   let currentFilter = 'all';
   let searchQuery = '';
@@ -2378,26 +2340,14 @@ function initSearchAndFilters() {
       const desc = card.querySelector('.tool-card-desc')?.textContent.toLowerCase() || '';
 
       let matchesCatOrStatus = false;
-      if (currentFilter === 'optimized') {
-        matchesCatOrStatus = (status === 'optimized');
-      } else if (currentFilter === 'process') {
-        matchesCatOrStatus = (status === 'process');
-      } else if (currentCategory === 'all') {
-        matchesCatOrStatus = true;
-      } else {
-        matchesCatOrStatus = (category === currentCategory);
-      }
+      if (currentFilter === 'optimized') matchesCatOrStatus = (status === 'optimized');
+      else if (currentFilter === 'process') matchesCatOrStatus = (status === 'process');
+      else if (currentCategory === 'all') matchesCatOrStatus = true;
+      else matchesCatOrStatus = (category === currentCategory);
 
-      const matchesSearch = !searchQuery || 
-        title.includes(searchQuery) || 
-        desc.includes(searchQuery) || 
-        keywords.includes(searchQuery);
-
-      if (matchesCatOrStatus && matchesSearch) {
-        card.style.display = 'flex';
-      } else {
-        card.style.display = 'none';
-      }
+      const matchesSearch = !searchQuery || title.includes(searchQuery) || desc.includes(searchQuery) || keywords.includes(searchQuery);
+      if (matchesCatOrStatus && matchesSearch) card.style.display = 'flex';
+      else card.style.display = 'none';
     });
   }
 
@@ -2412,18 +2362,10 @@ function initSearchAndFilters() {
     pill.addEventListener('click', () => {
       filterPills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
-
       const filterAttr = pill.getAttribute('data-filter');
       const catAttr = pill.getAttribute('data-category');
-
-      if (filterAttr) {
-        currentFilter = filterAttr;
-        currentCategory = 'custom';
-      } else {
-        currentFilter = 'all';
-        currentCategory = catAttr || 'all';
-      }
-
+      if (filterAttr) { currentFilter = filterAttr; currentCategory = 'custom'; } 
+      else { currentFilter = 'all'; currentCategory = catAttr || 'all'; }
       filterCards();
     });
   });
@@ -2442,7 +2384,6 @@ function initMobileNav() {
         icon.classList.toggle('fa-xmark');
       }
     };
-
     document.addEventListener('click', (e) => {
       if (navMenu.classList.contains('open') && !navMenu.contains(e.target) && !navToggle.contains(e.target)) {
         navMenu.classList.remove('open');
@@ -2454,29 +2395,8 @@ function initMobileNav() {
       }
     });
   }
-
-  let deferredInstallPrompt = null;
-  const installAppBtn = document.getElementById('installAppBtn');
-
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredInstallPrompt = e;
-    if (installAppBtn) installAppBtn.style.display = 'inline-flex';
-  });
-
-  if (installAppBtn) {
-    installAppBtn.onclick = async () => {
-      if (deferredInstallPrompt) {
-        deferredInstallPrompt.prompt();
-        await deferredInstallPrompt.userChoice;
-        deferredInstallPrompt = null;
-        installAppBtn.style.display = 'none';
-      }
-    };
-  }
 }
 
-// Global Initialization safe against DOM ready state
 function initAll() {
   initTheme();
   initSearchAndFilters();
