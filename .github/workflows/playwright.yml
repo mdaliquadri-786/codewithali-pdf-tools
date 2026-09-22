@@ -13,20 +13,13 @@ jobs:
       with:
         node-version: 20
         
-    - name: Initialize Playwright setup
+    - name: Install Dependencies
       run: |
-        npm init -y
+        npm install
         npm install -D @playwright/test
         
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps chromium
       
     - name: Run Playwright tests
-      run: npx playwright test tests/pdf-tools.spec.js
-      
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 7
+      run: npx playwright test tests/pdf-tools.spec.js --reporter=list
