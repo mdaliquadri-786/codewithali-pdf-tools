@@ -26,6 +26,8 @@ const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NA
 const UPLOADS_DIR = isServerless ? path.join(os.tmpdir(), 'cwa_uploads') : path.join(__dirname, 'uploads');
 const OUTPUTS_DIR = isServerless ? path.join(os.tmpdir(), 'cwa_outputs') : path.join(__dirname, 'outputs');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const JS_DIR = path.join(PUBLIC_DIR, 'js');
+const CSS_DIR = path.join(PUBLIC_DIR, 'css');
 
 [UPLOADS_DIR, OUTPUTS_DIR].forEach((dir) => {
   if (!fs.existsSync(dir)) {
@@ -33,13 +35,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
   }
 });
 
-// CORS: the frontend and this API are same-origin (browsers don't need CORS
-// headers at all for same-origin requests — CORS only governs CROSS-origin
-// JS fetch/XHR). The previous "Access-Control-Allow-Origin: *" applied to
-// EVERY route and let any third-party website's JavaScript call this API
-// directly from a visitor's browser (upload/process files, hit the contact
-// endpoint, etc. using that visitor's traffic/quota). Restrict it to this
-// app's own deployed origin, plus localhost for local development.
+// CORS
 const ALLOWED_ORIGINS = new Set([
   'https://codewithali-pdf-tools.vercel.app',
   'http://localhost:3000',
@@ -64,12 +60,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// -----------------------------------------------------------------------------
-// Backward-compatible legacy URL redirects — MUST be registered before
-// express.static() below, otherwise static file serving would intercept
-// these exact filenames and serve them directly, and these redirects would
-// never fire.
-// -----------------------------------------------------------------------------
+// Legacy redirects
 app.get('/index.html', (req, res) => {
   res.redirect(301, '/');
 });
@@ -88,6 +79,8 @@ app.get('/tool.html', (req, res) => {
 
 // Serve static assets from public/
 app.use(express.static(PUBLIC_DIR));
+app.use('/js', express.static(JS_DIR));
+app.use('/css', express.static(CSS_DIR));
 app.use('/public', express.static(PUBLIC_DIR));
 app.use('/codewithali-pdf-tools/public', express.static(PUBLIC_DIR));
 
@@ -96,11 +89,7 @@ app.use('/api/pdf', pdfRoutes);
 const contactRoutes = require('./routes/contact');
 app.use('/api/contact', contactRoutes);
 
-// Tool page route helper — validated against the authoritative tool list in
-// public/js/script.js's TOOLS registry, so an invalid slug gets a genuine
-// HTTP 404 (not just a client-side illusion of one after a 200 response).
-// NOTE: keep this list in sync with the `TOOLS` object in public/js/script.js
-// if a tool is ever added or removed.
+// Tool page route helper
 const VALID_TOOL_SLUGS = new Set([
   'merge', 'split', 'compress', 'image-to-pdf', 'rotate', 'watermark', 'page-numbers',
   'organize', 'pdf-to-jpg', 'extract-text', 'flatten', 'metadata', 'base64', 'grayscale',
@@ -111,10 +100,6 @@ const VALID_TOOL_SLUGS = new Set([
 
 app.get('/tools/:tool', (req, res) => {
   const slug = String(req.params.tool || '').toLowerCase();
-  // Same file either way (the client-side "Tool Not Found" view already
-  // handles the visual state correctly) — but the HTTP status now honestly
-  // reflects whether the route is real, which matters for crawlers, curl,
-  // and anything else that checks status codes rather than rendering JS.
   res.status(VALID_TOOL_SLUGS.has(slug) ? 200 : 404).sendFile(path.join(PUBLIC_DIR, 'tool.html'));
 });
 
@@ -138,7 +123,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Storage Cleanup
-const FILE_EXPIRY_MS = 60 * 60 * 1000; // 1 Hour
+const FILE_EXPIRY_MS = 60 * 60 * 1000;
 
 function cleanDirectory(dirPath) {
   if (!fs.existsSync(dirPath)) return;
@@ -177,12 +162,11 @@ app.use((req, res) => {
   if (requestPath.startsWith('/api/')) {
     return res.status(404).json({ error: 'Endpoint not found' });
   }
-  // SPA fallback: serve the homepage for unknown GET pages. The old check used
-  // req.accepts(), which the zero-dependency fallback server never implements,
-  // so unknown pages got a JSON 404 instead of the app shell.
+
   if ((req.method === 'GET' || req.method === 'HEAD') && (typeof req.accepts !== 'function' || req.accepts('html'))) {
     return res.status(404).sendFile(path.join(PUBLIC_DIR, 'index.html'));
   }
+
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
