@@ -17,7 +17,6 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
         test(`Testing Tool: ${tool.toUpperCase()}`, async ({ page }) => {
             const consoleErrors = [];
 
-            // Listen for internal browser errors
             page.on('console', message => {
                 if (message.type() === 'error') {
                     consoleErrors.push(`[Browser Console Error] ${message.text()}`);
@@ -26,6 +25,17 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
 
             page.on('pageerror', error => {
                 consoleErrors.push(`[Page Exception] ${error.message}`);
+            });
+
+            // Advanced Network Diagnostics (To catch exactly which file gives 404)
+            page.on('requestfailed', request => {
+                consoleErrors.push(`[Request Failed] ${request.url()} - ${request.failure()?.errorText || 'unknown error'}`);
+            });
+
+            page.on('response', response => {
+                if (response.status() === 404) {
+                    consoleErrors.push(`[HTTP 404] ${response.url()}`);
+                }
             });
 
             await page.goto(`https://codewithali-pdf-tools.vercel.app/tools/${tool}`);
@@ -47,9 +57,8 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
             await page.locator('#actionSubmitBtn').click();
             
             const resultCard = page.locator('#resultCard');
-            const errorMessage = page.locator('.toast-error'); // Checks for your custom UI error toaster
+            const errorMessage = page.locator('.toast-error');
 
-            // Polling mechanism to immediately catch if it fails, rather than waiting 30 seconds
             await expect.poll(async () => {
                 if (await resultCard.isVisible()) return 'success';
                 
@@ -62,7 +71,7 @@ test.describe('CodeWithAli PDF Tools - Live Vercel Tests', () => {
                 return 'pending';
             }, {
                 timeout: 30000,
-                message: `PDF processing failed. Here are the exact errors captured:\n\n${consoleErrors.join('\n')}`
+                message: `PDF processing failed. Exact Errors:\n\n${consoleErrors.join('\n')}`
             }).toBe('success');
             
             const downloadHref = await page.locator('#downloadResultBtn, #downloadBtn').getAttribute('href');
