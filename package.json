@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "CodeWithAli PDF Tools Suite - 100% Client-Side In-Browser PDF Editor",
   "scripts": {
-    "test": "node generate-tool-pages.js",
+    "test": "node tests/run-tests.js",
     "generate-tool-pages": "node generate-tool-pages.js",
     "test:e2e": "playwright test tests/pdf-tools.spec.js"
   },
