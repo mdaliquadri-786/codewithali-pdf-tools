@@ -262,30 +262,45 @@
     </div>
 
     <!-- Developer & Recruiter Portfolio Summary Box -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); padding: 32px; box-shadow: var(--shadow-md); max-width: 880px; margin: 0 auto; text-align: left;">
-      <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 18px;">
-        <div style="width: 48px; height: 48px; border-radius: var(--radius-full); background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
-          <i class="fa-solid fa-user-tie"></i>
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); padding: 36px 32px; box-shadow: var(--shadow-md); max-width: 960px; margin: 40px auto 20px; text-align: left;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, rgba(229, 50, 45, 0.15), rgba(37, 99, 235, 0.15)); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; border: 1px solid rgba(229, 50, 45, 0.25);">
+            <i class="fa-solid fa-user-tie"></i>
+          </div>
+          <div>
+            <h3 style="font-size: 1.3rem; font-weight: 800; color: var(--text-primary); margin: 0;">Designed & Architected by Mohammed Ali Quadri</h3>
+            <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+              <span>Lead Full-Stack & Systems Performance Engineer</span>
+              <span>•</span>
+              <span style="color: var(--primary); font-weight: 600;">CodeWithAli Platform</span>
+            </p>
+          </div>
         </div>
-        <div>
-          <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary); margin: 0;">Designed & Architected by Mohammed Ali Quadri</h3>
-          <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 2px;">Lead Full-Stack & Systems Performance Engineer • CodeWithAli Platform</p>
+        <div style="display: flex; gap: 10px;">
+          <a href="https://github.com/mdaliquadri-786/codewithali-pdf-tools" target="_blank" rel="noopener noreferrer" class="cta-btn-sm" style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 8px 14px; font-size: 0.82rem; text-decoration: none; border-radius: var(--radius-md);">
+            <i class="fa-brands fa-github"></i> GitHub
+          </a>
+          <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" class="cta-btn-sm" style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 8px 14px; font-size: 0.82rem; text-decoration: none; border-radius: var(--radius-md);">
+            <i class="fa-brands fa-linkedin"></i> LinkedIn
+          </a>
         </div>
       </div>
-      <p style="font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 16px;">
+      <p style="font-size: 0.95rem; color: var(--text-secondary); line-height: 1.65; margin-bottom: 20px;">
         This platform was engineered as an enterprise-grade demonstration of modern browser capabilities. By eliminating server-side compute bottlenecks and processing complex PDF documents directly inside client memory via WebAssembly and typed arrays, the system achieves zero operational hosting costs, zero privacy liability, and instantaneous performance.
       </p>
-      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;">
-        <span style="background: var(--bg-tertiary); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">JavaScript (ES6+)</span>
-        <span style="background: var(--bg-tertiary); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Mozilla PDF.js</span>
-        <span style="background: var(--bg-tertiary); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">PDF-Lib (WASM)</span>
-        <span style="background: var(--bg-tertiary); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">PWA Service Worker</span>
-        <span style="background: var(--bg-tertiary); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Unicode BiDi Algorithm</span>
-        <span style="background: var(--bg-tertiary); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">HTML5 Canvas Pipeline</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px;">
+        <span class="tech-pill"><i class="fa-brands fa-js" style="color: #f7df1e;"></i> JavaScript (ES6+)</span>
+        <span class="tech-pill"><i class="fa-solid fa-file-pdf" style="color: #e5322d;"></i> Mozilla PDF.js</span>
+        <span class="tech-pill"><i class="fa-solid fa-gears" style="color: #3b82f6;"></i> PDF-Lib (WASM)</span>
+        <span class="tech-pill"><i class="fa-solid fa-bolt" style="color: #10b981;"></i> PWA Service Worker</span>
+        <span class="tech-pill"><i class="fa-solid fa-language" style="color: #8b5cf6;"></i> Unicode BiDi Algorithm</span>
+        <span class="tech-pill"><i class="fa-solid fa-palette" style="color: #f59e0b;"></i> HTML5 Canvas Pipeline</span>
+        <span class="tech-pill"><i class="fa-solid fa-brain" style="color: #ec4899;"></i> Client NLP / Gemini API</span>
       </div>
-      <div style="text-align: center; border-top: 1px solid var(--border-color); padding-top: 18px;">
-        <a href="/" class="cta-btn-sm" style="display: inline-flex; padding: 10px 24px;">
-          <i class="fa-solid fa-arrow-left"></i> Explore All 32 PDF Tools
+      <div style="text-align: center; border-top: 1px solid var(--border-color); padding-top: 22px;">
+        <a href="/" class="action-submit-btn" style="display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: auto; padding: 12px 32px; text-decoration: none; font-weight: 700; border-radius: var(--radius-full); box-shadow: 0 4px 14px rgba(229, 50, 45, 0.25);">
+          <i class="fa-solid fa-arrow-left"></i> Explore All 33 PDF Tools
         </a>
       </div>
     </div>
@@ -294,8 +309,80 @@
 
   <!-- Footer -->
   <footer class="footer">
-    <div class="container footer-bottom">
-      <p>&copy; 2026 CodeWithAli PDF Tools Suite. Engineered by Mohammed Ali Quadri.</p>
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a href="/" class="brand" style="margin-bottom: 14px; display: inline-flex;">
+            <div class="brand-icon">
+              <i class="fa-solid fa-file-pdf"></i>
+            </div>
+            <div class="brand-text">
+              CodeWithAli <span>PDF Suite</span>
+            </div>
+          </a>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 16px;">
+            The zero-knowledge, high-performance in-browser PDF suite. Process confidential contracts, statements, and books with zero cloud server uploads and native RTL / Indic font fidelity.
+          </p>
+          <div class="footer-badges" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <span class="footer-trust-badge">
+              <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> 100% In-Browser Privacy
+            </span>
+            <span class="footer-trust-badge">
+              <i class="fa-solid fa-bolt" style="color: #3b82f6;"></i> PWA Offline Ready
+            </span>
+          </div>
+        </div>
+
+        <div class="footer-col">
+          <h5>Organize & Edit</h5>
+          <ul class="footer-links">
+            <li><a href="/tools/merge">Merge PDF</a></li>
+            <li><a href="/tools/split">Split PDF</a></li>
+            <li><a href="/tools/organize">Organize Pages</a></li>
+            <li><a href="/tools/rotate">Rotate Pages</a></li>
+            <li><a href="/tools/edit">Add Annotations</a></li>
+            <li><a href="/tools/watermark">Watermark Stamp</a></li>
+            <li><a href="/tools/page-numbers">Page Numbers</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Convert & OCR</h5>
+          <ul class="footer-links">
+            <li><a href="/tools/pdf-to-word">PDF to Word (.docx)</a></li>
+            <li><a href="/tools/pdf-to-excel">PDF to Excel (.xlsx)</a></li>
+            <li><a href="/tools/pdf-to-ppt">PDF to PowerPoint</a></li>
+            <li><a href="/tools/pdf-to-jpg">PDF to JPG Images</a></li>
+            <li><a href="/tools/image-to-pdf">Image to PDF</a></li>
+            <li><a href="/tools/ocr">Tesseract.js OCR</a></li>
+            <li><a href="/tools/ai-summarize">AI Summarizer (Gemini)</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Security & System</h5>
+          <ul class="footer-links">
+            <li><a href="/tools/protect">Protect PDF (AES-256)</a></li>
+            <li><a href="/tools/unlock">Unlock PDF</a></li>
+            <li><a href="/tools/sign">E-Signature Canvas</a></li>
+            <li><a href="/tools/redact">Redact & Sanitize</a></li>
+            <li><a href="/tools/repair">Repair Corrupt PDF</a></li>
+            <li><a href="/tools/metadata">Metadata Inspector</a></li>
+            <li><a href="/why-us">Why CodeWithAli (Specs)</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>
+          <p>© 2026 CodeWithAli PDF Tools Suite • Architected by <strong>Mohammed Ali Quadri</strong></p>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">Zero Server Footprint • Enterprise WebAssembly Engine • Open Web Standards</p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <a href="/" class="restart-btn" style="padding: 6px 14px; font-size: 0.82rem;"><i class="fa-solid fa-grid-2"></i> All 33 Tools</a>
+          <a href="/why-us" class="restart-btn" style="padding: 6px 14px; font-size: 0.82rem;"><i class="fa-solid fa-microchip"></i> System Specs</a>
+        </div>
+      </div>
     </div>
   </footer>
 

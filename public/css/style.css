@@ -515,56 +515,79 @@ input, select, textarea {
 
 /* Footer */
 .footer {
-  margin-top: auto;
+  margin-top: 70px;
   background-color: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
-  padding: 50px 0 30px;
+  padding: 60px 0 32px;
+  position: relative;
+  width: 100%;
 }
 
 .footer-top {
   display: grid;
-  grid-template-columns: 2fr repeat(3, 1fr);
-  gap: 40px;
+  grid-template-columns: 1.8fr repeat(3, 1fr);
+  gap: 36px;
   margin-bottom: 40px;
 }
 
 .footer-brand h3 {
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 800;
   margin-bottom: 12px;
+  color: var(--text-primary);
 }
 
 .footer-brand p {
   color: var(--text-secondary);
-  font-size: 0.92rem;
-  max-width: 320px;
-  line-height: 1.5;
+  font-size: 0.9rem;
+  max-width: 340px;
+  line-height: 1.6;
+}
+
+.footer-trust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
 }
 
 .footer-col h5 {
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 800;
   margin-bottom: 16px;
   color: var(--text-primary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 .footer-links {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
+  padding: 0;
+  margin: 0;
 }
 
 .footer-links a {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--text-secondary);
-  transition: var(--transition);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .footer-links a:hover {
   color: var(--primary);
+  transform: translateX(4px);
 }
 
 .footer-bottom {
@@ -573,8 +596,30 @@ input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+.tech-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-tertiary);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.tech-pill:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
 }
 
 /* ==========================================================================
@@ -1132,15 +1177,31 @@ input, select, textarea {
 }
 
 /* Responsive adjustments */
+@media (max-width: 900px) {
+  .footer-top {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+}
+
 @media (max-width: 768px) {
   .hero-title {
     font-size: 2.2rem;
   }
-  .footer-top {
-    grid-template-columns: 1fr;
-  }
   .nav-menu {
     display: none;
+  }
+}
+
+@media (max-width: 580px) {
+  .footer-top {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .footer-bottom {
+    flex-direction: column;
+    text-align: center;
+    justify-content: center;
   }
 }
 
