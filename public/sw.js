@@ -3,7 +3,7 @@
  * Provides True Offline Mode by aggressively caching local assets and external CDNs.
  */
 
-const CACHE_NAME = 'cwa-pdf-tools-offline-v12';
+const CACHE_NAME = 'cwa-pdf-tools-offline-v13';
 
 // 1. Pre-cache list (Assets to download immediately on first load)
 const CORE_ASSETS = [
@@ -16,6 +16,14 @@ const CORE_ASSETS = [
     '/js/script.js',
     '/js/pdf-engine-client.js',
     '/js/pdf-worker.js',
+    '/js/security-engine.js',
+    '/js/ocr-engine.js',
+    '/js/word-to-pdf.js',
+    '/js/excel-to-pdf.js',
+    '/js/pdf-to-ppt.js',
+    '/js/ppt-to-pdf.js',
+    '/js/pdfa-engine.js',
+    '/js/real-engine-overrides.js',
     '/manifest.json',
     'https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'

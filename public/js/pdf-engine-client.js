@@ -227,48 +227,35 @@ window.ClientPDFEngine = {
   },
 
   // ===========================================================================
-  // 1B. PDF TO WORD (.DOCX) - EXACT LAYOUT VIA VERCEL HYBRID BACKEND
+  // 1B. PDF TO WORD (.DOCX / .DOC) - CLIENT-SIDE ENGINE
   // ===========================================================================
   async pdfToWord(file) {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/pdf-to-word', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error("Backend API limit reached or layout too complex");
-      }
-
-      const blob = await response.blob();
-      const outName = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.docx`;
-      const res = this.downloadBlob(blob, outName);
-      res.message = 'PDF successfully converted to exact Word (.docx) layout via Cloud Server!';
-      return res;
-
-    } catch (backendError) {
-      console.warn("Backend API failed, seamlessly falling back to Local JS Converter...");
-      return await this.localPdfToWordFallback(file);
-    }
+    return await this.localPdfToWordFallback(file);
   },
 
   // ===========================================================================
-  // 2. OCR TEXT RECOGNITION
+  // 2. OCR TEXT RECOGNITION (Tesseract.js Engine)
   // ===========================================================================
   async ocrPDF(file) {
+    if (window.RealOCREngine) {
+      const ocrResult = await window.RealOCREngine.ocrPdfFile(file, { lang: 'eng' });
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+      const blob = new Blob(['\ufeff', ocrResult.text || 'No text recognized.'], { type: 'text/plain;charset=utf-8' });
+      const res = this.downloadBlob(blob, `${baseName}_OCR_Extracted.txt`);
+      res.text = ocrResult.text;
+      res.message = 'OCR text recognized and extracted via Tesseract.js!';
+      return res;
+    }
     const buffer = await this.readAsArrayBuffer(file);
     let extractedText = await this.extractTextAccurate(buffer);
     if (!extractedText || extractedText.trim().length === 0) {
-      extractedText = `OCR Processing completed for: ${file.name}\n\nNotice: This document contains visual image scans. High-resolution text layer mapped and verified.`;
+      extractedText = `Extracted Text for: ${file.name}\n\n[Scanned document without digital text layer]`;
     }
     const baseName = file.name.replace(/\.[^/.]+$/, '');
     const blob = new Blob(['\ufeff', extractedText], { type: 'text/plain;charset=utf-8' });
-    const res = this.downloadBlob(blob, `${baseName}_OCR_Extracted.txt`);
+    const res = this.downloadBlob(blob, `${baseName}_Extracted.txt`);
     res.text = extractedText;
-    res.message = 'OCR text extracted and document structured successfully!';
+    res.message = 'Text layer extracted successfully!';
     return res;
   },
 
@@ -545,54 +532,32 @@ window.ClientPDFEngine = {
   },
 
   // ===========================================================================
-  // 11. PROTECT PDF (WORKER ENHANCED)
+  // 11. PROTECT PDF (REAL AES ENCRYPTION ENGINE)
   // ===========================================================================
   async protectPDF(file, password = '') {
-    try {
-      const buffer = await this.readAsArrayBuffer(file);
-      const workerResultBytes = await this.executeInWorker('protect', [buffer], { password });
-      const blob = new Blob([workerResultBytes], { type: 'application/pdf' });
+    if (!password || password.trim() === '') {
+      throw new Error('Please enter a password to protect the document.');
+    }
+    if (window.RealSecurityEngine) {
+      const blob = await window.RealSecurityEngine.protect(file, password);
       const res = this.downloadBlob(blob, `Protected_${file.name}`);
-      res.message = 'PDF security headers applied via Background Worker!';
-      return res;
-    } catch (err) {
-      if (!window.PDFLib) throw new Error('PDF library loading...');
-      const { PDFDocument } = window.PDFLib;
-      const buffer = await this.readAsArrayBuffer(file);
-      const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-      doc.setTitle(`Protected - ${file.name}`);
-      doc.setCreator('CodeWithAli PDF Security Suite');
-      doc.setProducer('CodeWithAli Security Engine');
-      const bytes = await doc.save();
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const res = this.downloadBlob(blob, `Protected_${file.name}`);
-      res.message = 'PDF security headers applied (Fallback)!';
+      res.message = 'PDF encrypted with AES password protection!';
       return res;
     }
+    throw new Error('Security engine is not loaded. Please reload the page.');
   },
 
   // ===========================================================================
-  // 12. UNLOCK PDF (WORKER ENHANCED)
+  // 12. UNLOCK PDF (REAL DECRYPTION ENGINE)
   // ===========================================================================
-  async unlockPDF(file) {
-    try {
-      const buffer = await this.readAsArrayBuffer(file);
-      const workerResultBytes = await this.executeInWorker('unlock', [buffer]);
-      const blob = new Blob([workerResultBytes], { type: 'application/pdf' });
+  async unlockPDF(file, password = '') {
+    if (window.RealSecurityEngine) {
+      const blob = await window.RealSecurityEngine.unlock(file, password);
       const res = this.downloadBlob(blob, `Unlocked_${file.name}`);
-      res.message = 'PDF unlocked via Background Worker!';
-      return res;
-    } catch (err) {
-      if (!window.PDFLib) throw new Error('PDF library loading...');
-      const { PDFDocument } = window.PDFLib;
-      const buffer = await this.readAsArrayBuffer(file);
-      const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-      const bytes = await doc.save();
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const res = this.downloadBlob(blob, `Unlocked_${file.name}`);
-      res.message = 'PDF unlocked and restrictions cleared (Fallback)!';
+      res.message = 'PDF decrypted and restrictions removed!';
       return res;
     }
+    throw new Error('Security engine is not loaded. Please reload the page.');
   },
 
   // ===========================================================================

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Remove Restrictions (Metadata Unlock) | CodeWithAli PDF Tools</title>
+  <title>Unlock PDF (Decrypt &amp; Remove Restrictions) | CodeWithAli PDF Tools</title>
   
   <!-- Inter Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,19 +14,19 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   
   <!-- Custom Stylesheet -->
-  <meta name="description" content="Clear metadata modification locks and restriction flags. Note: Cryptographically encrypted user passwords (AES/RC4) cannot be cracked client-side.">
+  <meta name="description" content="Decrypt password-protected PDFs or remove viewer restrictions directly in your browser.">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#e5322d">
   <link rel="stylesheet" href="/css/style.css">
 
   <link rel="canonical" href="https://codewithali-pdf-tools.vercel.app/tools/unlock">
-  <meta property="og:title" content="Remove Restrictions (Metadata Unlock) | CodeWithAli PDF Tools">
-  <meta property="og:description" content="Clear metadata modification locks and restriction flags. Note: Cryptographically encrypted user passwords (AES/RC4) cannot be cracked client-side.">
+  <meta property="og:title" content="Unlock PDF (Decrypt &amp; Remove Restrictions) | CodeWithAli PDF Tools">
+  <meta property="og:description" content="Decrypt password-protected PDFs or remove viewer restrictions directly in your browser.">
   <meta property="og:url" content="https://codewithali-pdf-tools.vercel.app/tools/unlock">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Remove Restrictions (Metadata Unlock) | CodeWithAli PDF Tools">
-  <meta name="twitter:description" content="Clear metadata modification locks and restriction flags. Note: Cryptographically encrypted user passwords (AES/RC4) cannot be cracked client-side.">
+  <meta name="twitter:title" content="Unlock PDF (Decrypt &amp; Remove Restrictions) | CodeWithAli PDF Tools">
+  <meta name="twitter:description" content="Decrypt password-protected PDFs or remove viewer restrictions directly in your browser.">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>
@@ -371,7 +371,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/libs/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 
   <!-- Application Logic -->
@@ -391,15 +390,20 @@
   <script src="/js/real-engine-overrides.js"></script>
 
   <!-- Service Worker Registration -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => {
-          console.warn('Offline Service Worker note:', err);
+ <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      // Path ko './sw.js' se '/sw.js' kar diya gaya hai
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.info('Service worker registered:', registration.scope);
+        })
+        .catch(error => {
+          console.warn('Service worker registration failed:', error);
         });
-      });
-    }
-  </script>
+    });
+  }
+</script>
   <!-- Floating Quick Capabilities Sidebar Trigger -->
   <button id="quickSpecsToggle" class="quick-specs-toggle" type="button" title="View Live Architecture & Offline Status">
     <i class="fa-solid fa-microchip"></i>

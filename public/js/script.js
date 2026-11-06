@@ -429,12 +429,81 @@ const Engine1_PDFLib = {
     return new Blob([bytes], { type: 'application/pdf' });
   },
 
-  async repairPDF(file) {
+  async mergePDFs(files) {
     const { PDFDocument } = await this.ensureLibrary();
-    const buffer = await this.readFileAsArrayBuffer(file);
-    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    const mergedDoc = await PDFDocument.create();
+    for (const f of files) {
+      const buf = await this.readFileAsArrayBuffer(f);
+      const doc = await PDFDocument.load(buf, { ignoreEncryption: true });
+      const pages = await mergedDoc.copyPages(doc, doc.getPageIndices());
+      pages.forEach(p => mergedDoc.addPage(p));
+    }
+    const bytes = await mergedDoc.save({ useObjectStreams: true });
+    return new Blob([bytes], { type: 'application/pdf' });
+  },
+
+  async splitPDF(file, pageIndices) {
+    const { PDFDocument } = await this.ensureLibrary();
+    const buf = await this.readFileAsArrayBuffer(file);
+    const srcDoc = await PDFDocument.load(buf, { ignoreEncryption: true });
+    const newDoc = await PDFDocument.create();
+    const indices = Array.isArray(pageIndices) && pageIndices.length > 0 ? pageIndices : [0];
+    const validIndices = indices.filter(i => i >= 0 && i < srcDoc.getPageCount());
+    const pages = await newDoc.copyPages(srcDoc, validIndices);
+    pages.forEach(p => newDoc.addPage(p));
+    const bytes = await newDoc.save({ useObjectStreams: true });
+    return new Blob([bytes], { type: 'application/pdf' });
+  },
+
+  async rotatePDF(file, angle = 90) {
+    const { PDFDocument, degrees } = await this.ensureLibrary();
+    const buf = await this.readFileAsArrayBuffer(file);
+    const doc = await PDFDocument.load(buf, { ignoreEncryption: true });
+    doc.getPages().forEach(p => {
+      const current = p.getRotation().angle;
+      p.setRotation(degrees(current + angle));
+    });
     const bytes = await doc.save({ useObjectStreams: true });
     return new Blob([bytes], { type: 'application/pdf' });
+  },
+
+  async repairPDF(file) {
+    const buffer = await this.readFileAsArrayBuffer(file);
+    try {
+      const { PDFDocument } = await this.ensureLibrary();
+      const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+      const clean = await PDFDocument.create();
+      const pages = await clean.copyPages(doc, doc.getPageIndices());
+      pages.forEach(p => clean.addPage(p));
+      const bytes = await clean.save({ useObjectStreams: true });
+      return new Blob([bytes], { type: 'application/pdf' });
+    } catch (e) {
+      if (window.pdfjsLib) {
+        const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
+        const pdf = await loadingTask.promise;
+        const { PDFDocument } = await this.ensureLibrary();
+        const rebuiltDoc = await PDFDocument.create();
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const viewport = page.getViewport({ scale: 2.0 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          const imgData = canvas.toDataURL('image/jpeg', 0.92);
+          const imgBytes = await (await fetch(imgData)).arrayBuffer();
+          const embedded = await rebuiltDoc.embedJpg(imgBytes);
+          const newPage = rebuiltDoc.addPage([viewport.width / 2, viewport.height / 2]);
+          newPage.drawImage(embedded, { x: 0, y: 0, width: viewport.width / 2, height: viewport.height / 2 });
+          canvas.width = 0;
+          canvas.height = 0;
+        }
+        const bytes = await rebuiltDoc.save({ useObjectStreams: true });
+        return new Blob([bytes], { type: 'application/pdf' });
+      }
+      throw new Error('This PDF has severe structural damage and could not be recovered: ' + e.message);
+    }
   },
 
   async pdfToPdfa(file) {
@@ -530,6 +599,73 @@ const Engine2_PDFJS = {
       if (onProgress) onProgress(Math.round((p / totalPages) * 100));
     }
     return images;
+  },
+
+  async pdfToExcel(file, onProgress) {
+    if (!window.XLSX) {
+      throw new Error('SheetJS (XLSX) library is still loading. Please reload the page and try again.');
+    }
+    const pdf = await this.loadDocument(file);
+    const totalPages = pdf.numPages;
+    const wb = window.XLSX.utils.book_new();
+
+    for (let p = 1; p <= totalPages; p++) {
+      if (onProgress) onProgress(Math.round((p / totalPages) * 100));
+      const page = await pdf.getPage(p);
+      const textContent = await page.getTextContent({ normalizeWhitespace: true });
+      const items = textContent.items || [];
+
+      if (items.length === 0) {
+        const emptyWs = window.XLSX.utils.aoa_to_sheet([['[No text layer found on this page]']]);
+        window.XLSX.utils.book_append_sheet(wb, emptyWs, `Page ${p}`);
+        continue;
+      }
+
+      const rowTolerance = 6;
+      const sortedItems = items.slice().sort((a, b) => {
+        const yA = a.transform ? a.transform[5] : 0;
+        const yB = b.transform ? b.transform[5] : 0;
+        if (Math.abs(yA - yB) > rowTolerance) return yB - yA;
+        const xA = a.transform ? a.transform[4] : 0;
+        const xB = b.transform ? b.transform[4] : 0;
+        return xA - xB;
+      });
+
+      const rows = [];
+      let currentRow = [];
+      let currentY = null;
+
+      sortedItems.forEach((item) => {
+        const str = (item.str || '').trim();
+        if (!str) return;
+        const x = item.transform ? item.transform[4] : 0;
+        const y = item.transform ? item.transform[5] : 0;
+
+        if (currentY === null || Math.abs(y - currentY) > rowTolerance) {
+          if (currentRow.length > 0) {
+            rows.push(currentRow.map(c => c.str));
+          }
+          currentRow = [{ x, str }];
+          currentY = y;
+        } else {
+          const prevItem = currentRow[currentRow.length - 1];
+          if (prevItem && (x - (prevItem.x + 15)) < 15) {
+            prevItem.str += ' ' + str;
+          } else {
+            currentRow.push({ x, str });
+          }
+        }
+      });
+      if (currentRow.length > 0) {
+        rows.push(currentRow.map(c => c.str));
+      }
+
+      const ws = window.XLSX.utils.aoa_to_sheet(rows.length > 0 ? rows : [['[Empty Page]']]);
+      window.XLSX.utils.book_append_sheet(wb, ws, `Page ${p}`);
+    }
+
+    const wbout = window.XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   },
 
   async renderPageToJpgBlob(file, pageNum = 1, scale = 2.0) {
@@ -1260,23 +1396,41 @@ const TOOLS = {
   },
 
   'ocr': {
-    name: 'Digital Text Layer Extractor & Reconstructor',
+    name: 'OCR PDF (Optical Character Recognition)',
     icon: 'fa-eye',
-    desc: 'Extract and reconstruct digital text streams with Unicode support. Note: Scanned bitmap images without text streams require optical OCR models.',
+    desc: 'Extract text from scanned PDF documents and images using in-browser Tesseract.js machine learning.',
     accept: '.pdf,application/pdf',
     multiple: false,
     minFiles: 1,
-    btnText: 'Extract Digital Text Layer',
+    btnText: 'Run Optical OCR',
     status: 'optimized',
     renderOptions: () => `
       <div class="option-group">
         <label class="option-label">Language Script Model</label>
         <select id="ocrLangSelect" class="option-select">
-          <option value="universal" selected>Universal Multi-Script (English, Urdu, Arabic, Telugu, Hindi)</option>
-          <option value="eng">English (Latin)</option>
+          <option value="universal" selected>English (Latin - Fast & Accurate)</option>
           <option value="ara_urd">Arabic & Urdu (RTL)</option>
           <option value="tel_hin">Telugu & Hindi (Indic)</option>
         </select>
+      </div>
+      <div class="option-group">
+        <label class="option-label">Output Target</label>
+        <div class="radio-cards">
+          <label class="radio-card selected">
+            <input type="radio" name="ocrOutputFormat" value="text" checked>
+            <div class="radio-card-info">
+              <strong>Extracted Text (.txt)</strong>
+              <small>Plain text file with recognized words</small>
+            </div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="ocrOutputFormat" value="pdf">
+            <div class="radio-card-info">
+              <strong>Searchable PDF (.pdf)</strong>
+              <small>Original visuals with hidden searchable text</small>
+            </div>
+          </label>
+        </div>
       </div>
     `
   },
@@ -1447,41 +1601,42 @@ const TOOLS = {
   },
 
   'protect': {
-    name: 'PDF Permissions & Restrictions (Metadata Lock)',
+    name: 'Protect PDF (AES Password Encryption)',
     icon: 'fa-lock',
-    desc: 'Apply browser-level permissions and metadata restriction flags. Note: Binary AES-256 password encryption requires a native backend/desktop engine.',
+    desc: 'Encrypt your PDF with strong AES-256 password protection and permission restrictions directly in your browser.',
     accept: '.pdf,application/pdf',
     multiple: false,
     minFiles: 1,
-    btnText: 'Apply Metadata Restrictions',
+    btnText: 'Encrypt & Protect PDF',
     status: 'process',
     renderOptions: () => `
       <div class="option-group">
-        <label class="option-label" for="pdfPass">Access Passphrase</label>
-        <input type="password" id="pdfPass" class="option-input" placeholder="Enter passphrase">
+        <label class="option-label" for="pdfPass">Document Password</label>
+        <input type="password" id="pdfPass" class="option-input" placeholder="Enter password to encrypt">
       </div>
       <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.3;">
-        Applies client-side document security attributes and viewer restrictions.
+        Applies genuine client-side AES-256 encryption. Your password never leaves your browser.
       </p>
     `
   },
 
   'unlock': {
-    name: 'Remove Restrictions (Metadata Unlock)',
+    name: 'Unlock PDF (Decrypt & Remove Restrictions)',
     icon: 'fa-unlock',
-    desc: 'Clear metadata modification locks and restriction flags. Note: Cryptographically encrypted user passwords (AES/RC4) cannot be cracked client-side.',
+    desc: 'Decrypt password-protected PDFs or remove viewer restrictions directly in your browser.',
     accept: '.pdf,application/pdf',
     multiple: false,
     minFiles: 1,
-    btnText: 'Clear Restrictions',
+    btnText: 'Unlock Document',
     status: 'process',
     renderOptions: () => `
       <div class="option-group">
-        <label class="option-label">Security Sanitization</label>
-        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">
-          Removes modification locks and viewer restrictions.
-        </p>
+        <label class="option-label" for="unlockPass">Document Password (if encrypted)</label>
+        <input type="password" id="unlockPass" class="option-input" placeholder="Enter password (leave blank if clearing permission locks)">
       </div>
+      <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.3;">
+        Decrypts password-locked files and removes printing, copying, and modification restrictions.
+      </p>
     `
   },
 
@@ -1963,7 +2118,7 @@ function initWorkspace() {
           }
         }
         else if (toolKey === 'pdf-to-excel') {
-          resultBlob = await Engine2_PDFJS.pdfToExcel(file);
+          resultBlob = await Engine2_PDFJS.pdfToExcel(file, (p) => setProgressBar(p));
           downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.xlsx`;
         }
         else if (toolKey === 'extract-text') {
@@ -2042,8 +2197,7 @@ function initWorkspace() {
         else if (toolKey === 'pdf-to-word') {
           const mode = document.querySelector('input[name="wordMode"]:checked')?.value || 'text';
           
-          if (mode === 'image') {
-             // Exact Visual Layout (Image based fallback for complex PDFs)
+          if (mode === 'image' || mode === 'exact') {
              const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
              const buffer = await Engine1_PDFLib.readFileAsArrayBuffer(file);
              let docBodyContent = '';
@@ -2054,35 +2208,52 @@ function initWorkspace() {
                for (let p = 1; p <= pdf.numPages; p++) {
                  const pageDataUrl = await window.ClientPDFEngine.renderPageToDataUrl(pdf, p, 1.5);
                  docBodyContent += `<div style="text-align: center; margin-bottom: 20px; page-break-after: always;"><img src="${pageDataUrl}" style="max-width: 100%; border: 1px solid #ccc;" /></div>`;
+                 setProgressBar(Math.round((p / pdf.numPages) * 100));
                }
              }
              
              const wordDocHTML = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${baseName}</title></head><body style="margin: 0; padding: 0;">${docBodyContent}</body></html>`;
              resultBlob = new Blob(['\ufeff', wordDocHTML], { type: 'application/msword;charset=utf-8' });
              downloadFilename = `${baseName}_Exact_Layout.doc`;
-          } 
-          else if (engine && engine.pdfToWord) {
-             try {
-               const res = await engine.pdfToWord(file);
-               showResultScreen(res, toolConfig);
-               return;
-             } catch (backendError) {
-               console.warn("Backend API failed, falling back to Local JS Converter...", backendError);
-               showToast("Complex layout detected. Using local browser engine...", "info");
-               
-               // Client Side Fallback (Text Mode with New RTL BIDI Tags)
-               const buf = await Engine1_PDFLib.readFileAsArrayBuffer(file);
-               let rawText = await window.ClientPDFEngine.extractTextAccurate(buf);
-               const paragraphs = (rawText || 'Converted Document Content').split('\n').filter(Boolean);
-               resultBlob = OOXMLBuilder.buildDocx(paragraphs, file.name);
-               downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.docx`;
-             }
+          } else {
+             const buf = await Engine1_PDFLib.readFileAsArrayBuffer(file);
+             let rawText = await window.ClientPDFEngine.extractTextAccurate(buf);
+             const paragraphs = (rawText || 'Converted Document Content').split('\n').filter(Boolean);
+             resultBlob = OOXMLBuilder.buildDocx(paragraphs, file.name);
+             downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Converted.docx`;
           }
         }
-        else if (toolKey === 'ocr' && window.ClientPDFEngine) {
-          const res = await window.ClientPDFEngine.ocrPDF(file);
-          showResultScreen(res, toolConfig);
-          return;
+        else if (toolKey === 'ocr') {
+          if (!window.RealOCREngine) {
+            throw new Error('OCR engine script failed to load. Please reload the page.');
+          }
+          const langSelect = document.getElementById('ocrLangSelect')?.value || 'universal';
+          let tesseractLang = 'eng';
+          if (langSelect === 'ara_urd') tesseractLang = 'ara+urd';
+          else if (langSelect === 'tel_hin') tesseractLang = 'hin+tel';
+          else if (langSelect === 'universal') tesseractLang = 'eng';
+
+          const outFormat = document.querySelector('input[name="ocrOutputFormat"]:checked')?.value || 'text';
+          const buildSearchablePdf = outFormat === 'pdf';
+
+          const ocrResult = await window.RealOCREngine.ocrPdfFile(file, {
+            lang: tesseractLang,
+            buildSearchablePdf,
+            onProgress: (p) => {
+              if (p.page && p.totalPages) {
+                setProgressBar(Math.round((p.page / p.totalPages) * 100));
+              }
+            }
+          });
+
+          if (buildSearchablePdf && ocrResult.searchablePdfBlob) {
+            resultBlob = ocrResult.searchablePdfBlob;
+            downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Searchable.pdf`;
+          } else {
+            const outputText = `=== OCR TEXT EXTRACTION REPORT ===\nFile: ${file.name}\nEngine: Tesseract.js Optical Character Recognition\nPages: ${ocrResult.pageCount}\n\n` + (ocrResult.text || '[No text could be recognized on scanned pages]');
+            resultBlob = new Blob(['\ufeff', outputText], { type: 'text/plain;charset=utf-8' });
+            downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_OCR_Extracted.txt`;
+          }
         }
         else if (toolKey === 'ai-summarize') {
           const buf = await Engine1_PDFLib.readFileAsArrayBuffer(file);
@@ -2098,27 +2269,144 @@ function initWorkspace() {
           const numSentences = mode === 'deep' ? 8 : 5;
           const summary = ClientAIEngine.generateSummary(extractedText, numSentences);
 
-          const aiContent = `=== AI EXECUTIVE SUMMARY & KEY INSIGHTS ===\nFile: ${file.name}\nPrivacy: 100% In-Browser Private NLP\n\n` + summary;
+          const aiContent = `=== DOCUMENT EXECUTIVE SUMMARY & KEY INSIGHTS ===\nFile: ${file.name}\nProcessing: 100% Client-Side In-Browser NLP\n\n` + summary;
           resultBlob = new Blob(['\ufeff', aiContent], { type: 'text/plain;charset=utf-8' });
-          downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_AI_Summary.txt`;
+          downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Summary.txt`;
         }
         else if (toolKey === 'protect') {
           const pass = document.getElementById('pdfPass')?.value || '';
-          if (engine) resultBlob = await engine.protectPDF(file, pass);
-          else resultBlob = await Engine1_PDFLib.protectPDF(file, pass);
+          if (!pass || !pass.trim()) {
+            throw new Error('Please enter a password to protect the document.');
+          }
+          if (!window.RealSecurityEngine) {
+            throw new Error('Security engine failed to load. Please reload the page.');
+          }
+          resultBlob = await window.RealSecurityEngine.protect(file, pass);
           downloadFilename = `Protected_${file.name}`;
         }
         else if (toolKey === 'unlock') {
-          if (engine) resultBlob = await engine.unlockPDF(file);
-          else resultBlob = await Engine1_PDFLib.unlockPDF(file);
+          const pass = document.getElementById('unlockPass')?.value || document.getElementById('pdfPass')?.value || '';
+          if (!window.RealSecurityEngine) {
+            throw new Error('Security engine failed to load. Please reload the page.');
+          }
+          resultBlob = await window.RealSecurityEngine.unlock(file, pass);
           downloadFilename = `Unlocked_${file.name}`;
+        }
+        else if (toolKey === 'compare') {
+          if (uploadedFiles.length < 2) {
+            throw new Error('Please select at least two PDF files to compare.');
+          }
+          const fileA = uploadedFiles[0];
+          const fileB = uploadedFiles[1];
+
+          const pdfA = await Engine2_PDFJS.loadDocument(fileA);
+          const pdfB = await Engine2_PDFJS.loadDocument(fileB);
+
+          let diffReport = `=== PDF COMPARISON & STRUCTURAL ANALYSIS ===\nGenerated: ${new Date().toLocaleString()}\nTool: CodeWithAli PDF Compare Suite\n\n`;
+          diffReport += `File 1: ${fileA.name} (${(fileA.size / 1024).toFixed(1)} KB)\n`;
+          diffReport += `File 2: ${fileB.name} (${(fileB.size / 1024).toFixed(1)} KB)\n`;
+          diffReport += `------------------------------------------------------------\n\n`;
+
+          diffReport += `[1] STRUCTURE & PAGE COUNT\n`;
+          diffReport += `* File 1 Pages: ${pdfA.numPages}\n`;
+          diffReport += `* File 2 Pages: ${pdfB.numPages}\n`;
+          diffReport += `* Page Count Match: ${pdfA.numPages === pdfB.numPages ? 'YES (Identical)' : 'NO (Different page counts)'}\n\n`;
+
+          diffReport += `[2] PAGE-BY-PAGE DIMENSIONS & CONTENT COMPARISON\n`;
+          const maxPages = Math.max(pdfA.numPages, pdfB.numPages);
+
+          for (let p = 1; p <= maxPages; p++) {
+            setProgressBar(Math.round((p / maxPages) * 100));
+            diffReport += `\n--- Page ${p} ---\n`;
+            if (p <= pdfA.numPages && p <= pdfB.numPages) {
+              const pageA = await pdfA.getPage(p);
+              const pageB = await pdfB.getPage(p);
+              const viewA = pageA.getViewport({ scale: 1 });
+              const viewB = pageB.getViewport({ scale: 1 });
+              diffReport += `Dimensions: File 1 [${Math.round(viewA.width)} x ${Math.round(viewA.height)}] vs File 2 [${Math.round(viewB.width)} x ${Math.round(viewB.height)}]\n`;
+
+              const txtA = (await pageA.getTextContent()).items.map(i => i.str).join(' ').trim();
+              const txtB = (await pageB.getTextContent()).items.map(i => i.str).join(' ').trim();
+
+              if (txtA === txtB) {
+                diffReport += `Content Status: Text streams are identical.\n`;
+              } else {
+                diffReport += `Content Status: Content variations detected!\n`;
+                diffReport += `  File 1 words: ${txtA.split(/\s+/).filter(Boolean).length} words\n`;
+                diffReport += `  File 2 words: ${txtB.split(/\s+/).filter(Boolean).length} words\n`;
+              }
+            } else if (p > pdfA.numPages) {
+              diffReport += `Page exists ONLY in File 2 (${fileB.name})\n`;
+            } else {
+              diffReport += `Page exists ONLY in File 1 (${fileA.name})\n`;
+            }
+          }
+
+          resultBlob = new Blob(['\ufeff', diffReport], { type: 'text/plain;charset=utf-8' });
+          downloadFilename = `CodeWithAli_Comparison_${fileA.name.replace(/\.[^/.]+$/, '')}_vs_${fileB.name.replace(/\.[^/.]+$/, '')}.txt`;
+        }
+        else if (toolKey === 'edit') {
+          const noteText = (document.getElementById('editNoteText')?.value || 'APPROVED').trim();
+          const position = document.getElementById('editPosition')?.value || 'top-right';
+          const { PDFDocument, StandardFonts, rgb } = await Engine1_PDFLib.ensureLibrary();
+          const buffer = await Engine1_PDFLib.readFileAsArrayBuffer(file);
+          const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+          const font = await doc.embedFont(StandardFonts.HelveticaBold);
+          const pages = doc.getPages();
+
+          pages.forEach((page, pIdx) => {
+            const { width, height } = page.getSize();
+            const fontSize = 14;
+            const textWidth = font.widthOfTextAtSize(noteText, fontSize);
+            const textHeight = font.heightAtSize(fontSize);
+            const padding = 6;
+
+            let x = width - textWidth - 30;
+            let y = height - 30;
+
+            if (position === 'top-center') {
+              x = (width - textWidth) / 2;
+              y = height - 30;
+            } else if (position === 'bottom-center') {
+              x = (width - textWidth) / 2;
+              y = 30;
+            }
+
+            page.drawRectangle({
+              x: x - padding,
+              y: y - padding + 2,
+              width: textWidth + (padding * 2),
+              height: textHeight + (padding * 2),
+              color: rgb(0.96, 0.96, 0.96),
+              borderColor: rgb(0.85, 0.2, 0.2),
+              borderWidth: 1,
+              opacity: 0.95
+            });
+
+            page.drawText(noteText, {
+              x,
+              y,
+              size: fontSize,
+              font,
+              color: rgb(0.85, 0.2, 0.2)
+            });
+            setProgressBar(Math.round(((pIdx + 1) / pages.length) * 100));
+          });
+
+          const bytes = await doc.save({ useObjectStreams: true });
+          resultBlob = new Blob([bytes], { type: 'application/pdf' });
+          downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Annotated.pdf`;
         }
         else if (toolKey === 'repair') {
           resultBlob = await Engine1_PDFLib.repairPDF(file);
           downloadFilename = `Repaired_${file.name}`;
         }
         else if (toolKey === 'pdf-to-pdfa') {
-          resultBlob = await Engine1_PDFLib.pdfToPdfa(file);
+          if (window.RealPDFAEngine) {
+            resultBlob = await window.RealPDFAEngine.convert(file);
+          } else {
+            resultBlob = await Engine1_PDFLib.pdfToPdfa(file);
+          }
           downloadFilename = `PDFA_${file.name}`;
         }
         else if (toolKey === 'word-to-pdf' && window.RealWordToPDF) {
