@@ -2072,3 +2072,50 @@ img, svg, video { max-width: 100%; height: auto; }
   h1 { font-size: clamp(1.6rem, 7vw, 2.2rem); line-height: 1.2; }
   .tool-card { padding: 18px; }
 }
+
+/* Search Zero-State Empty State */
+.search-empty-state {
+  text-align: center;
+  padding: 60px 24px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-xl);
+  max-width: 620px;
+  margin: 32px auto;
+  box-shadow: var(--shadow-sm);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.search-empty-state .empty-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+}
+
+.search-empty-state .empty-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.search-empty-state .empty-desc {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.search-empty-state .empty-desc em {
+  color: var(--primary);
+  font-style: normal;
+  font-weight: 600;
+}
+

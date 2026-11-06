@@ -2062,7 +2062,18 @@ function initWorkspace() {
       if (mdInput && !mdInput.value) {
         mdInput.value = `# Project Documentation\n## Executive Summary\nEngineered with **CodeWithAli PDF Tools Suite**.\n\n### Key Highlights\n- 100% in-browser processing\n- Zero server round-trips\n- Complete data privacy`;
       }
+      const loadSampleBtn = document.getElementById('loadMdSampleBtn');
+      if (loadSampleBtn && mdInput) {
+        loadSampleBtn.onclick = () => {
+          mdInput.value = `# Technical Specification & Architecture\n## CodeWithAli PDF Tools Platform\n**Document Version:** 2.4.0 (Enterprise Client Build)\n**Author:** Mohammed Ali Quadri (Lead Full-Stack & Systems Performance Engineer)\n\n### 1. Executive Summary\nCodeWithAli PDF Tools is an enterprise-grade client-side suite engineered using **WebAssembly (WASM)**, modern typed byte arrays, and the HTML5 Canvas pipeline.\n\n### 2. Core Capabilities\n- **100% Client-Side:** Zero file transfers to cloud servers.\n- **Offline Capable:** Full Progressive Web App (PWA) offline service worker.\n- **Privacy Guaranteed:** In-memory garbage-collected cryptographic processing.\n\n### 3. Implementation Code Example\n\`\`\`javascript\nconst pdfDoc = await PDFDocument.load(arrayBuffer);\npdfDoc.setTitle("Architecture Brief");\nconst pdfBytes = await pdfDoc.save();\n\`\`\`\n\n> *"True privacy is architectural, not contractual."*\n`;
+          showToast('Sample markdown notes loaded!', 'success');
+        };
+      }
     }
+  }
+
+  if (toolConfig.minFiles === 2 && dropzoneHint) {
+    dropzoneHint.textContent = `or drop at least 2 files here to ${toolConfig.name.toLowerCase()}`;
   }
 
   let uploadedFiles = [];
@@ -2220,6 +2231,12 @@ function initWorkspace() {
       const file = uploadedFiles[0];
       const totalCountSpan = document.getElementById('totalPagesCount');
 
+      const rotateAllBtn = document.getElementById('rotateAllPagesBtn');
+      if (rotateAllBtn) {
+        if (toolKey === 'rotate') rotateAllBtn.style.display = 'inline-flex';
+        else rotateAllBtn.style.display = 'none';
+      }
+
       pageGridState = await Engine2_PDFJS.renderDocumentPagesGrid(file, pagesContainer, {
         showDeleteBtn: toolKey === 'organize',
         onSelectionChanged: (selectedIndices) => {
@@ -2230,6 +2247,69 @@ function initWorkspace() {
 
       if (totalCountSpan && pageGridState) {
         totalCountSpan.textContent = pageGridState.totalPages;
+      }
+
+      // Wire batch selection & rotate controls
+      const selectAllBtn = document.getElementById('selectAllPagesBtn');
+      if (selectAllBtn) {
+        selectAllBtn.onclick = () => {
+          if (!pageGridState) return;
+          pageGridState.selectedSet.clear();
+          const cards = pagesContainer.querySelectorAll('.page-card');
+          cards.forEach((card, idx) => {
+            card.classList.add('selected');
+            pageGridState.selectedSet.add(idx);
+          });
+          const rangeInput = document.getElementById('splitRangeInput');
+          if (rangeInput) rangeInput.value = indicesToRangeString(Array.from(pageGridState.selectedSet));
+          showToast(`Selected all ${pageGridState.totalPages} pages.`, 'info');
+        };
+      }
+
+      const deselectAllBtn = document.getElementById('deselectAllPagesBtn');
+      if (deselectAllBtn) {
+        deselectAllBtn.onclick = () => {
+          if (!pageGridState) return;
+          pageGridState.selectedSet.clear();
+          const cards = pagesContainer.querySelectorAll('.page-card');
+          cards.forEach(card => card.classList.remove('selected'));
+          const rangeInput = document.getElementById('splitRangeInput');
+          if (rangeInput) rangeInput.value = '';
+          showToast('Cleared all page selections.', 'info');
+        };
+      }
+
+      const invertBtn = document.getElementById('invertPagesBtn');
+      if (invertBtn) {
+        invertBtn.onclick = () => {
+          if (!pageGridState) return;
+          const cards = pagesContainer.querySelectorAll('.page-card');
+          cards.forEach((card, idx) => {
+            if (pageGridState.selectedSet.has(idx)) {
+              pageGridState.selectedSet.delete(idx);
+              card.classList.remove('selected');
+            } else {
+              pageGridState.selectedSet.add(idx);
+              card.classList.add('selected');
+            }
+          });
+          const rangeInput = document.getElementById('splitRangeInput');
+          if (rangeInput) rangeInput.value = indicesToRangeString(Array.from(pageGridState.selectedSet).sort((a,b)=>a-b));
+          showToast('Inverted page selection.', 'info');
+        };
+      }
+
+      if (rotateAllBtn) {
+        rotateAllBtn.onclick = () => {
+          if (!pageGridState) return;
+          const cards = pagesContainer.querySelectorAll('.page-card');
+          cards.forEach((card, idx) => {
+            pageGridState.rotationMap[idx] = ((pageGridState.rotationMap[idx] || 0) + 90) % 360;
+            const canvas = card.querySelector('canvas');
+            if (canvas) canvas.style.transform = `rotate(${pageGridState.rotationMap[idx]}deg)`;
+          });
+          showToast('Rotated all pages 90° clockwise.', 'info');
+        };
       }
     }
   }
@@ -2383,6 +2463,13 @@ function initWorkspace() {
             const fullText = pageTexts.join('\n\n');
             resultBlob = new Blob(['\ufeff', fullText], { type: 'text/plain;charset=utf-8' });
             downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Extracted.txt`;
+            resDataText = fullText;
+            const extBox = document.getElementById('extractedTextBox');
+            const extContent = document.getElementById('extractedTextContent');
+            if (extBox && extContent) {
+              extContent.value = fullText;
+              extBox.style.display = 'block';
+            }
             resDataText = fullText;
           }
         }
@@ -3093,46 +3180,84 @@ function initSearchAndFilters() {
   const searchInput = document.getElementById('toolSearchInput');
   const filterPills = document.querySelectorAll('.filter-pill');
   const toolCards = document.querySelectorAll('.tool-card');
+  const emptyState = document.getElementById('searchEmptyState');
+  const emptyQuery = document.getElementById('searchEmptyQuery');
+  const clearSearchBtn = document.getElementById('clearSearchBtn');
+
   if (!searchInput && filterPills.length === 0) return;
   let currentCategory = 'all';
-  let currentFilter = 'all';
   let searchQuery = '';
 
   function filterCards() {
+    let visibleCount = 0;
     toolCards.forEach(card => {
       const category = card.getAttribute('data-category');
-      const status = card.getAttribute('data-status') || 'process';
       const keywords = (card.getAttribute('data-keywords') || '').toLowerCase();
       const title = card.querySelector('.tool-card-title')?.textContent.toLowerCase() || '';
       const desc = card.querySelector('.tool-card-desc')?.textContent.toLowerCase() || '';
 
-      let matchesCatOrStatus = false;
-      if (currentFilter === 'optimized') matchesCatOrStatus = (status === 'optimized');
-      else if (currentFilter === 'process') matchesCatOrStatus = (status === 'process');
-      else if (currentCategory === 'all') matchesCatOrStatus = true;
-      else matchesCatOrStatus = (category === currentCategory);
+      let matchesCat = false;
+      if (currentCategory === 'all') {
+        matchesCat = true;
+      } else if (currentCategory === 'organize-edit') {
+        matchesCat = (category === 'organize' || category === 'edit' || category === 'organize-edit');
+      } else if (currentCategory === 'convert-to') {
+        matchesCat = (category === 'convert-to');
+      } else if (currentCategory === 'convert-from') {
+        matchesCat = (category === 'convert-from');
+      } else if (currentCategory === 'security-optimize') {
+        matchesCat = (category === 'security' || category === 'optimize' || category === 'security-optimize');
+      } else if (currentCategory === 'smart-utilities') {
+        matchesCat = (category === 'exclusive' || category === 'smart-utilities');
+      } else {
+        matchesCat = (category === currentCategory);
+      }
 
       const matchesSearch = !searchQuery || title.includes(searchQuery) || desc.includes(searchQuery) || keywords.includes(searchQuery);
-      if (matchesCatOrStatus && matchesSearch) card.style.display = 'flex';
-      else card.style.display = 'none';
+      if (matchesCat && matchesSearch) {
+        card.style.display = 'flex';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
     });
+
+    if (emptyState) {
+      if (visibleCount === 0) {
+        emptyState.style.display = 'block';
+        if (emptyQuery) emptyQuery.textContent = searchQuery || currentCategory;
+      } else {
+        emptyState.style.display = 'none';
+      }
+    }
   }
 
   if (searchInput) {
+    searchInput.setAttribute('aria-label', 'Search PDF tools');
     searchInput.addEventListener('input', (e) => {
       searchQuery = e.target.value.trim().toLowerCase();
       filterCards();
     });
   }
 
+  if (clearSearchBtn) {
+    clearSearchBtn.onclick = () => {
+      if (searchInput) searchInput.value = '';
+      searchQuery = '';
+      currentCategory = 'all';
+      filterPills.forEach(p => {
+        p.classList.toggle('active', p.getAttribute('data-category') === 'all');
+      });
+      filterCards();
+    };
+  }
+
   filterPills.forEach(pill => {
     pill.addEventListener('click', () => {
       filterPills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
-      const filterAttr = pill.getAttribute('data-filter');
       const catAttr = pill.getAttribute('data-category');
-      if (filterAttr) { currentFilter = filterAttr; currentCategory = 'custom'; } 
-      else { currentFilter = 'all'; currentCategory = catAttr || 'all'; }
+      currentCategory = catAttr || 'all';
       filterCards();
     });
   });
@@ -3142,18 +3267,24 @@ function initMobileNav() {
   const navToggle = document.getElementById('navToggle');
   const navMenu = document.getElementById('navMenu') || document.querySelector('.nav-menu');
   if (navToggle && navMenu) {
+    navToggle.setAttribute('aria-label', 'Toggle navigation menu');
+    navToggle.setAttribute('aria-expanded', 'false');
+
     navToggle.onclick = (e) => {
       e.stopPropagation();
-      navMenu.classList.toggle('open');
+      const isOpen = navMenu.classList.toggle('open');
+      navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
       const icon = navToggle.querySelector('i');
       if (icon) {
-        icon.classList.toggle('fa-bars');
-        icon.classList.toggle('fa-xmark');
+        icon.classList.toggle('fa-bars', !isOpen);
+        icon.classList.toggle('fa-xmark', isOpen);
       }
     };
+
     document.addEventListener('click', (e) => {
       if (navMenu.classList.contains('open') && !navMenu.contains(e.target) && !navToggle.contains(e.target)) {
         navMenu.classList.remove('open');
+        navToggle.setAttribute('aria-expanded', 'false');
         const icon = navToggle.querySelector('i');
         if (icon) {
           icon.classList.remove('fa-xmark');
@@ -3161,7 +3292,147 @@ function initMobileNav() {
         }
       }
     });
+
+    navMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        navMenu.classList.remove('open');
+        navToggle.setAttribute('aria-expanded', 'false');
+        const icon = navToggle.querySelector('i');
+        if (icon) {
+          icon.classList.remove('fa-xmark');
+          icon.classList.add('fa-bars');
+        }
+      });
+    });
   }
+
+  const themeToggle = document.getElementById('themeToggleBtn');
+  if (themeToggle) {
+    themeToggle.setAttribute('aria-label', 'Toggle light/dark theme');
+  }
+}
+
+function initQuickSpecsDrawer() {
+  const toggleBtn = document.getElementById('quickSpecsToggle');
+  const drawer = document.getElementById('quickSpecsDrawer');
+  const closeBtn = document.getElementById('closeSpecsDrawerBtn');
+  const backdrop = document.getElementById('specsDrawerBackdrop');
+  if (!toggleBtn || !drawer) return;
+
+  function openDrawer() {
+    drawer.classList.add('open');
+    if (backdrop) backdrop.classList.add('open');
+    updateLiveSpecsStatus();
+  }
+
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('open');
+  }
+
+  toggleBtn.onclick = (e) => {
+    e.stopPropagation();
+    if (drawer.classList.contains('open')) closeDrawer();
+    else openDrawer();
+  };
+
+  if (closeBtn) closeBtn.onclick = (e) => { e.stopPropagation(); closeDrawer(); };
+  if (backdrop) backdrop.onclick = () => closeDrawer();
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && drawer.classList.contains('open')) closeDrawer();
+  });
+
+  function updateLiveSpecsStatus() {
+    const netDot = document.getElementById('networkIndicatorDot');
+    const netTitle = document.getElementById('networkStatusTitle');
+    const netDesc = document.getElementById('networkStatusDesc');
+    const isOnline = navigator.onLine;
+
+    if (netDot && netTitle && netDesc) {
+      if (isOnline) {
+        netDot.className = 'network-status-indicator online';
+        netTitle.textContent = 'PWA Offline Engine Ready';
+        netDesc.textContent = 'Service Worker active. Turn off Wi-Fi to test offline processing!';
+      } else {
+        netDot.className = 'network-status-indicator offline';
+        netTitle.textContent = 'Operating 100% Offline';
+        netDesc.textContent = 'Zero server reliance — all 33 PDF engines execute entirely inside browser memory.';
+      }
+    }
+  }
+
+  window.addEventListener('online', updateLiveSpecsStatus);
+  window.addEventListener('offline', updateLiveSpecsStatus);
+}
+
+function initCopyButtons() {
+  const copyBase64Btn = document.getElementById('copyBase64Btn');
+  if (copyBase64Btn) {
+    copyBase64Btn.onclick = async () => {
+      const ta = document.getElementById('base64Content');
+      if (ta && ta.value) {
+        try {
+          await navigator.clipboard.writeText(ta.value);
+          showToast('Base64 string copied to clipboard!', 'success');
+        } catch (e) {
+          ta.select();
+          document.execCommand('copy');
+          showToast('Base64 string copied to clipboard!', 'success');
+        }
+      } else {
+        showToast('No Base64 data available to copy.', 'error');
+      }
+    };
+  }
+
+  const copyExtractedTextBtn = document.getElementById('copyExtractedTextBtn');
+  if (copyExtractedTextBtn) {
+    copyExtractedTextBtn.onclick = async () => {
+      const ta = document.getElementById('extractedTextContent');
+      if (ta && ta.value) {
+        try {
+          await navigator.clipboard.writeText(ta.value);
+          showToast('Extracted text copied to clipboard!', 'success');
+        } catch (e) {
+          ta.select();
+          document.execCommand('copy');
+          showToast('Extracted text copied to clipboard!', 'success');
+        }
+      } else {
+        showToast('No extracted text available to copy.', 'error');
+      }
+    };
+  }
+}
+
+let deferredInstallPrompt = null;
+function initPWAInstall() {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    const installBtns = document.querySelectorAll('#installAppBtn, .install-btn');
+    installBtns.forEach(btn => {
+      btn.style.display = 'inline-flex';
+      btn.onclick = async () => {
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        const choiceResult = await deferredInstallPrompt.userChoice;
+        if (choiceResult && choiceResult.outcome === 'accepted') {
+          showToast('CodeWithAli PDF Tools installed successfully!', 'success');
+          btn.style.display = 'none';
+        }
+        deferredInstallPrompt = null;
+      };
+    });
+  });
+
+  window.addEventListener('appinstalled', () => {
+    const installBtns = document.querySelectorAll('#installAppBtn, .install-btn');
+    installBtns.forEach(btn => btn.style.display = 'none');
+    deferredInstallPrompt = null;
+    showToast('CodeWithAli PDF Tools added to your applications.', 'success');
+  });
 }
 
 function initAll() {
@@ -3169,6 +3440,9 @@ function initAll() {
   initSearchAndFilters();
   initWorkspace();
   initMobileNav();
+  initQuickSpecsDrawer();
+  initCopyButtons();
+  initPWAInstall();
 }
 
 if (document.readyState === 'loading') {

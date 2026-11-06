@@ -3,7 +3,7 @@
  * Provides True Offline Mode by aggressively caching local assets and external CDNs.
  */
 
-const CACHE_NAME = 'cwa-pdf-tools-offline-v13';
+const CACHE_NAME = 'cwa-pdf-tools-offline-v14';
 
 // 1. Pre-cache list (Assets to download immediately on first load)
 const CORE_ASSETS = [

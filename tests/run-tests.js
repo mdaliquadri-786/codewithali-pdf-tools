@@ -257,7 +257,7 @@ assert(pkg.scripts['generate-tool-pages'] === 'node generate-tool-pages.js', 'pa
 // -----------------------------------------------------------------------------
 console.log('\n--- 5. OFFLINE SERVICE WORKER CACHE AUDIT ---');
 const swCode = fs.readFileSync(path.join(rootDir, 'public/sw.js'), 'utf8');
-assert(swCode.includes('v13'), 'Service Worker cache bumped to v13');
+assert(swCode.includes('v14'), 'Service Worker cache bumped to v14');
 
 const coreAssetsMatch = swCode.match(/const CORE_ASSETS = \[([\s\S]*?)\];/);
 assert(!!coreAssetsMatch, 'CORE_ASSETS list found in sw.js');
@@ -283,6 +283,64 @@ const cachedLocalFiles = [
 cachedLocalFiles.forEach(f => {
   assert(fs.existsSync(path.join(rootDir, f)), `Pre-cached asset physically exists: ${f}`);
 });
+
+// -----------------------------------------------------------------------------
+// TEST 6: UI/UX ARCHITECTURE & INTERACTIVE CONTROLS AUDIT
+// -----------------------------------------------------------------------------
+console.log('\n--- 6. UI/UX ARCHITECTURE & INTERACTIVE CONTROLS AUDIT ---');
+const indexHtmlContent = fs.readFileSync(path.join(rootDir, 'public/index.html'), 'utf8');
+const toolHtmlContent = fs.readFileSync(path.join(rootDir, 'public/tool.html'), 'utf8');
+const whyUsHtmlContent = fs.readFileSync(path.join(rootDir, 'public/why-us.html'), 'utf8');
+const notFoundHtmlContent = fs.readFileSync(path.join(rootDir, 'public/404.html'), 'utf8');
+
+// 1. Search Empty State Verification
+assert(indexHtmlContent.includes('id="searchEmptyState"'), 'Search zero-state container exists in index.html');
+assert(scriptCode.includes('clearSearchBtn'), 'Reset Search button wired in script.js');
+
+// 2. Button Wiring Verification
+assert(scriptCode.includes('initQuickSpecsDrawer'), 'Quick Specs drawer initialization wired in script.js');
+assert(scriptCode.includes('quickSpecsToggle'), 'Quick specs floating button wired in script.js');
+assert(scriptCode.includes('closeSpecsDrawerBtn'), 'Quick specs close button wired in script.js');
+assert(scriptCode.includes('specsDrawerBackdrop'), 'Quick specs backdrop wired in script.js');
+
+assert(scriptCode.includes('selectAllPagesBtn'), 'Batch Select All pages button wired in script.js');
+assert(scriptCode.includes('deselectAllPagesBtn'), 'Batch Clear pages button wired in script.js');
+assert(scriptCode.includes('invertPagesBtn'), 'Batch Invert pages button wired in script.js');
+assert(scriptCode.includes('rotateAllPagesBtn'), 'Batch Rotate All pages button wired in script.js');
+
+assert(scriptCode.includes('loadMdSampleBtn'), 'Load Sample Notes button wired in script.js');
+assert(scriptCode.includes('copyBase64Btn'), 'Copy Base64 string button wired in script.js');
+assert(scriptCode.includes('copyExtractedTextBtn'), 'Copy Extracted Text button wired in script.js');
+assert(scriptCode.includes('beforeinstallprompt'), 'PWA beforeinstallprompt handler wired in script.js');
+
+// 3. FontAwesome Free Icon Purity Check (No Pro icons)
+const allHtml = indexHtmlContent + toolHtmlContent + whyUsHtmlContent + notFoundHtmlContent;
+assert(!allHtml.includes('fa-presentation-screen'), 'Zero fa-presentation-screen Pro icon occurrences');
+assert(!allHtml.includes('fa-grid-2'), 'Zero fa-grid-2 Pro icon occurrences');
+
+// 4. Production Tag Purity (No Beta stigma)
+assert(!indexHtmlContent.includes('tag-beta'), 'Zero tag-beta stigma occurrences on index.html');
+assert(!indexHtmlContent.includes('Beta Tool'), 'Zero "Beta Tool" label occurrences on index.html');
+
+// 5. Category Architecture Verification
+const gridSnippet = indexHtmlContent.substring(indexHtmlContent.indexOf('id="toolGrid"'), indexHtmlContent.indexOf('id="searchEmptyState"'));
+const cardCategories = [...gridSnippet.matchAll(/data-category="([^"]+)"/g)].map(m => m[1]);
+const validCategories = ['organize-edit', 'convert-to', 'convert-from', 'security-optimize', 'smart-utilities'];
+assert(cardCategories.length === 33, `All 33 tool cards have data-category attribute (found ${cardCategories.length})`);
+const allCatsValid = cardCategories.every(c => validCategories.includes(c));
+assert(allCatsValid, 'All 33 tool cards map to the 5 unified SaaS categories');
+
+const organizeCount = cardCategories.filter(c => c === 'organize-edit').length;
+const convertToCount = cardCategories.filter(c => c === 'convert-to').length;
+const convertFromCount = cardCategories.filter(c => c === 'convert-from').length;
+const secOptCount = cardCategories.filter(c => c === 'security-optimize').length;
+const smartCount = cardCategories.filter(c => c === 'smart-utilities').length;
+
+assert(organizeCount === 9, `Organize & Edit category count: Expected 9, got ${organizeCount}`);
+assert(convertToCount === 5, `Convert to PDF category count: Expected 5, got ${convertToCount}`);
+assert(convertFromCount === 5, `Convert from PDF category count: Expected 5, got ${convertFromCount}`);
+assert(secOptCount === 9, `Security & Optimize category count: Expected 9, got ${secOptCount}`);
+assert(smartCount === 5, `AI & Smart Utilities category count: Expected 5, got ${smartCount}`);
 
 console.log('================================================================');
 console.log(`  AUDIT TEST RESULTS: ${passedTests} PASSED, ${failedTests} FAILED`);
