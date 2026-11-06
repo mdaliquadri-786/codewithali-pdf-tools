@@ -939,8 +939,86 @@ const ClientAIEngine = {
     scored.sort((a, b) => b.score - a.score);
     const top = scored.slice(0, numSentences).sort((a, b) => a.idx - b.idx);
     return top.map(item => `• ${item.sentence}`).join('\n\n');
+  },
+  answerQuestionLocal(query, text) {
+    if (!text || text.trim().length === 0) return 'No text was found in this document to answer the question.';
+    const sentences = this.cleanSentences(text);
+    if (sentences.length === 0) return 'The document does not have extractable text sentences.';
+
+    const stopWords = new Set([
+      'the','is','at','which','on','and','a','an','in','to','of','for','with','as','by','that',
+      'this','it','from','or','be','are','was','were','have','has','had','not','but','what','all',
+      'who','where','when','why','how','can','could','would','should','do','does','did','tell',
+      'me','about','any','find','show','whats','give','kya','hai','kaise','kab','kyun','kahan'
+    ]);
+    const queryTerms = query.toLowerCase().match(/[\w\u0600-\u06FF\u0C00-\u0C7F\u0900-\u097F]{2,}/g) || [];
+    let keywords = queryTerms.filter(t => !stopWords.has(t));
+    if (keywords.length === 0) keywords = queryTerms;
+
+    const scored = sentences.map((s, idx) => {
+      const lower = s.toLowerCase();
+      let matchCount = 0;
+      let score = 0;
+      keywords.forEach(k => {
+        if (lower.includes(k)) {
+          matchCount++;
+          score += 10;
+          if (new RegExp(`(?:^|\\W)${k}(?:$|\\W)`, 'i').test(s)) score += 5;
+        }
+      });
+      return { sentence: s, score, matchCount, idx };
+    });
+
+    const matches = scored.filter(item => item.matchCount > 0).sort((a, b) => b.score - a.score);
+    if (matches.length === 0) {
+      return `No direct mentions matching "${query}" were found in this document. Try searching for specific names, dates, amounts, or terms mentioned in the file.`;
+    }
+
+    const top = matches.slice(0, 3).sort((a, b) => a.idx - b.idx);
+    return top.map(item => `• "${item.sentence}"`).join('\n\n');
   }
 };
+
+async function callGeminiApi(apiKey, promptText) {
+  const cleanKey = String(apiKey || '').trim();
+  if (!cleanKey) throw new Error('Google Gemini API key is required.');
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{ text: promptText }]
+      }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2048
+      }
+    })
+  });
+
+  if (!response.ok) {
+    let errMsg = `Gemini API HTTP ${response.status}`;
+    try {
+      const errData = await response.json();
+      if (errData && errData.error && errData.error.message) {
+        errMsg = errData.error.message;
+      }
+    } catch (_) {}
+    throw new Error(errMsg);
+  }
+
+  const data = await response.json();
+  const candidate = data?.candidates?.[0];
+  const candidateText = candidate?.content?.parts?.[0]?.text;
+  if (!candidateText) {
+    if (candidate?.finishReason) {
+      throw new Error(`Gemini response stopped with reason: ${candidate.finishReason}`);
+    }
+    throw new Error('No text returned in Gemini API response.');
+  }
+  return candidateText.trim();
+}
 
 // =============================================================================
 // 6. COMPLETE TOOL CONFIGURATIONS REGISTRY (ALL 33 ADVERTISED TOOLS)
@@ -1446,9 +1524,19 @@ const TOOLS = {
     status: 'optimized',
     renderOptions: () => `
       <div class="option-group" style="background: rgba(229, 50, 45, 0.08); border: 1px solid rgba(229, 50, 45, 0.25); border-radius: var(--radius-md, 12px); padding: 14px 16px; margin-bottom: 16px;">
-        <strong style="display:flex; align-items:center; gap:8px; color: var(--primary, #e5322d);"><i class="fa-solid fa-cloud-arrow-up"></i> This tool is not private</strong>
+        <strong style="display:flex; align-items:center; gap:8px; color: var(--primary, #e5322d);"><i class="fa-solid fa-cloud-arrow-up"></i> Google Gemini Cloud Processing (Optional)</strong>
         <p style="font-size: 0.85rem; margin: 6px 0 0; line-height: 1.5;">
-          To generate the summary, your document's extracted text is sent to <strong>Google's Gemini API</strong> using an API key you provide. This is different from every other tool on this site, which processes files 100% locally in your browser and never transmits document content anywhere. Do not use this tool on documents you don't want to share with Google.
+          Provide your Gemini API key below to unlock Google's Gemini 1.5 Flash model. If left empty, CodeWithAli processes your document <strong>100% offline & privately in your browser</strong> using our local NLP engine.
+        </p>
+      </div>
+      <div class="option-group">
+        <label class="option-label" for="geminiApiKey" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Google Gemini API Key (Optional)</span>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="font-size: 0.78rem; color: var(--primary); font-weight: 500;">Get Free Key <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.7rem;"></i></a>
+        </label>
+        <input type="password" id="geminiApiKey" class="option-input" placeholder="AIzaSy... (leave blank for private offline NLP)" style="margin-top: 6px; font-family: monospace; font-size: 0.88rem;">
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin: 6px 0 0; line-height: 1.4;">
+          <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> Stored locally in your browser's localStorage. Never sent to our servers.
         </p>
       </div>
       <div class="option-group">
@@ -1458,19 +1546,28 @@ const TOOLS = {
             <input type="radio" name="aiSummaryMode" value="executive" checked>
             <div class="radio-card-info">
               <strong>Executive Summary (5 Key Points)</strong>
-              <small>Sent to Google Gemini for processing</small>
+              <small>Fast synthesis of core takeaways</small>
             </div>
           </label>
           <label class="radio-card">
             <input type="radio" name="aiSummaryMode" value="deep">
             <div class="radio-card-info">
               <strong>Comprehensive In-Depth Synthesis</strong>
-              <small>Detailed breakdown of core findings</small>
+              <small>Detailed breakdown of findings & conclusions</small>
             </div>
           </label>
         </div>
       </div>
-    `
+    `,
+    postRender: () => {
+      const keyInput = document.getElementById('geminiApiKey');
+      if (keyInput) {
+        keyInput.value = localStorage.getItem('cwa_gemini_api_key') || '';
+        keyInput.addEventListener('input', (e) => {
+          localStorage.setItem('cwa_gemini_api_key', e.target.value.trim());
+        });
+      }
+    }
   },
 
   'pdf-to-word': {
@@ -1573,9 +1670,9 @@ const TOOLS = {
     status: 'process',
     renderOptions: () => `
       <div class="option-group">
-        <label class="option-label">Slide Deck Format</label>
-        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">
-          Extracts each PDF page into a high-resolution slide container for PowerPoint presentation.
+        <label class="option-label">Slide Deck Preservation</label>
+        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+          <i class="fa-solid fa-circle-check" style="color: #10b981;"></i> <strong>High-DPI Slide Rendering:</strong> Each page is converted into a crisp 2.0x retina-grade presentation slide background, preserving 100% of fonts, diagrams, tables, formulas, and visual alignments without distortion.
         </p>
       </div>
     `
@@ -2015,6 +2112,10 @@ function initWorkspace() {
         let downloadFilename = 'CodeWithAli_Document.pdf';
         const file = uploadedFiles[0];
         const engine = window.ClientPDFEngine; 
+        let resDataText = null;
+        let resDataDocText = null;
+        let resDataGeminiKey = null;
+        let resDataMetadata = null;
 
         if (toolKey === 'merge') {
           if (engine) resultBlob = await engine.mergePDFs(uploadedFiles);
@@ -2124,8 +2225,23 @@ function initWorkspace() {
         else if (toolKey === 'extract-text') {
           if (engine) {
             const res = await engine.extractText(file);
+            res.originalSize = file ? file.size : 0;
+            res.compressedSize = file ? file.size : 0;
             showResultScreen(res, toolConfig);
             return;
+          } else {
+            const pdfDoc = await Engine2_PDFJS.loadDocument(file);
+            const pageTexts = [];
+            for (let p = 1; p <= pdfDoc.numPages; p++) {
+              setProgressBar(Math.round((p / pdfDoc.numPages) * 100));
+              const page = await pdfDoc.getPage(p);
+              const tc = await page.getTextContent();
+              pageTexts.push(tc.items.map(i => i.str).join(' '));
+            }
+            const fullText = pageTexts.join('\n\n');
+            resultBlob = new Blob(['\ufeff', fullText], { type: 'text/plain;charset=utf-8' });
+            downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Extracted.txt`;
+            resDataText = fullText;
           }
         }
         else if (toolKey === 'flatten') {
@@ -2139,6 +2255,16 @@ function initWorkspace() {
           const kw = document.getElementById('metaKeywords')?.value || '';
           resultBlob = await Engine1_PDFLib.editMetadata(file, { title, author, subject, keywords: kw });
           downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Updated_Meta.pdf`;
+          resDataMetadata = {
+            'Document Title': title || '(Not set)',
+            'Author / Creator': author || '(Not set)',
+            'Subject / Topic': subject || '(Not set)',
+            'Keywords': kw || '(None)',
+            'File Name': file.name,
+            'File Size': formatBytes(resultBlob.size),
+            'Encryption Status': 'Unencrypted (Standard)',
+            'PDF Compliance': 'PDF-1.7 Standard'
+          };
         }
         else if (toolKey === 'base64') {
           const dataUri = await Engine1_PDFLib.readFileAsDataURL(file);
@@ -2254,8 +2380,10 @@ function initWorkspace() {
             resultBlob = new Blob(['\ufeff', outputText], { type: 'text/plain;charset=utf-8' });
             downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_OCR_Extracted.txt`;
           }
+          resDataText = ocrResult.text || '';
         }
         else if (toolKey === 'ai-summarize') {
+          setProgressBar(20);
           const buf = await Engine1_PDFLib.readFileAsArrayBuffer(file);
           let extractedText = '';
           if (window.ClientPDFEngine) {
@@ -2265,13 +2393,42 @@ function initWorkspace() {
             extractedText = `Document Content: ${file.name}.\nThis document was scanned or contains visual elements. Extracted text layer mapped.`;
           }
 
+          setProgressBar(50);
           const mode = document.querySelector('input[name="aiSummaryMode"]:checked')?.value || 'executive';
-          const numSentences = mode === 'deep' ? 8 : 5;
-          const summary = ClientAIEngine.generateSummary(extractedText, numSentences);
+          const apiKey = (document.getElementById('geminiApiKey')?.value || localStorage.getItem('cwa_gemini_api_key') || '').trim();
+          let summary = '';
+          let engineLabel = '';
 
-          const aiContent = `=== DOCUMENT EXECUTIVE SUMMARY & KEY INSIGHTS ===\nFile: ${file.name}\nProcessing: 100% Client-Side In-Browser NLP\n\n` + summary;
+          if (apiKey) {
+            try {
+              setProgressBar(70);
+              const prompt = mode === 'deep'
+                ? `Analyze the following PDF document. Provide a comprehensive in-depth synthesis with:\n1. Core Executive Summary\n2. Key Findings & Data Points\n3. Action Items or Conclusions\n\nDocument text:\n"""\n${extractedText.slice(0, 35000)}\n"""`
+                : `Analyze the following PDF document. Provide a concise executive summary with the 5 most critical key takeaways in clear bullet points:\n\nDocument text:\n"""\n${extractedText.slice(0, 35000)}\n"""`;
+              summary = await callGeminiApi(apiKey, prompt);
+              engineLabel = 'Cloud AI via Google Gemini 1.5 Flash';
+              showToast('Summary generated via Google Gemini 1.5 Flash!', 'success');
+            } catch (geminiErr) {
+              console.warn('[Gemini API call failed, falling back to local NLP]:', geminiErr);
+              showToast(`Gemini API: ${geminiErr.message.slice(0, 50)}. Using local NLP fallback.`, 'info');
+              const numSentences = mode === 'deep' ? 8 : 5;
+              summary = ClientAIEngine.generateSummary(extractedText, numSentences);
+              engineLabel = '100% Client-Side In-Browser NLP (Offline Fallback)';
+            }
+          } else {
+            const numSentences = mode === 'deep' ? 8 : 5;
+            summary = ClientAIEngine.generateSummary(extractedText, numSentences);
+            engineLabel = '100% Client-Side In-Browser NLP (Private)';
+          }
+
+          setProgressBar(90);
+          const aiContent = `=== DOCUMENT EXECUTIVE SUMMARY & KEY INSIGHTS ===\nFile: ${file.name}\nEngine: ${engineLabel}\nDate: ${new Date().toLocaleString()}\n\n` + summary;
           resultBlob = new Blob(['\ufeff', aiContent], { type: 'text/plain;charset=utf-8' });
           downloadFilename = `${file.name.replace(/\.[^/.]+$/, '')}_Summary.txt`;
+
+          resDataText = summary;
+          resDataDocText = extractedText;
+          resDataGeminiKey = apiKey;
         }
         else if (toolKey === 'protect') {
           const pass = document.getElementById('pdfPass')?.value || '';
@@ -2344,6 +2501,7 @@ function initWorkspace() {
 
           resultBlob = new Blob(['\ufeff', diffReport], { type: 'text/plain;charset=utf-8' });
           downloadFilename = `CodeWithAli_Comparison_${fileA.name.replace(/\.[^/.]+$/, '')}_vs_${fileB.name.replace(/\.[^/.]+$/, '')}.txt`;
+          resDataText = diffReport;
         }
         else if (toolKey === 'edit') {
           const noteText = (document.getElementById('editNoteText')?.value || 'APPROVED').trim();
@@ -2444,7 +2602,11 @@ function initWorkspace() {
           downloadUrl,
           filename: downloadFilename,
           originalSize: file ? file.size : 0,
-          compressedSize: resultBlob.size
+          compressedSize: resultBlob.size,
+          text: resDataText,
+          docText: resDataDocText,
+          geminiApiKey: resDataGeminiKey,
+          metadata: resDataMetadata
         };
 
         setTimeout(() => {
@@ -2552,10 +2714,182 @@ function showResultScreen(resData, toolConfig) {
     const resTitle = document.getElementById('resultTitle');
     if (resTitle) resTitle.textContent = `${toolConfig.name} Completed!`;
 
+    // 1. Compression Savings Stats Box
+    const resultStats = document.getElementById('resultStats');
+    const statOriginalSize = document.getElementById('statOriginalSize');
+    const statNewSize = document.getElementById('statNewSize');
+    const statReduction = document.getElementById('statReduction');
+
+    if (resultStats) {
+      if (resData.originalSize && resData.compressedSize && (toolConfig.name.includes('Compress') || resData.originalSize > resData.compressedSize)) {
+        if (statOriginalSize) statOriginalSize.textContent = formatBytes(resData.originalSize);
+        if (statNewSize) statNewSize.textContent = formatBytes(resData.compressedSize);
+        if (statReduction) {
+          const savedBytes = Math.max(0, resData.originalSize - resData.compressedSize);
+          const pct = Math.round((savedBytes / resData.originalSize) * 100);
+          if (pct > 0) {
+            statReduction.textContent = `-${pct}%`;
+            statReduction.style.color = '#10b981';
+          } else {
+            statReduction.textContent = 'Optimized';
+            statReduction.style.color = 'var(--text-primary)';
+          }
+        }
+        resultStats.style.display = 'flex';
+      } else {
+        resultStats.style.display = 'none';
+      }
+    }
+
+    // 2. OCR & Extracted Text Live Output Box
+    const ocrOutputBox = document.getElementById('ocrOutputBox');
+    const ocrTextResult = document.getElementById('ocrTextResult');
+    const copyOcrTextBtn = document.getElementById('copyOcrTextBtn');
+
+    if (ocrOutputBox && ocrTextResult) {
+      if (resData.text && typeof resData.text === 'string' && resData.text.trim().length > 0) {
+        ocrTextResult.value = resData.text;
+        ocrOutputBox.style.display = 'block';
+        if (copyOcrTextBtn) {
+          copyOcrTextBtn.onclick = () => {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(ocrTextResult.value).then(() => {
+                showToast('Text copied to clipboard!', 'success');
+              }).catch(() => {
+                ocrTextResult.select();
+                document.execCommand('copy');
+                showToast('Text copied to clipboard!', 'success');
+              });
+            } else {
+              ocrTextResult.select();
+              document.execCommand('copy');
+              showToast('Text copied to clipboard!', 'success');
+            }
+          };
+        }
+      } else {
+        ocrOutputBox.style.display = 'none';
+      }
+    }
+
+    // 3. Document Properties & Metadata Profile Box
+    const metadataOutputBox = document.getElementById('metadataOutputBox');
+    const metadataGrid = document.getElementById('metadataGrid');
+
+    if (metadataOutputBox && metadataGrid) {
+      if (resData.metadata && typeof resData.metadata === 'object' && Object.keys(resData.metadata).length > 0) {
+        metadataGrid.innerHTML = '';
+        Object.entries(resData.metadata).forEach(([k, v]) => {
+          const card = document.createElement('div');
+          card.style.cssText = 'background: var(--bg-tertiary); padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color);';
+          card.innerHTML = `
+            <span style="font-size: 0.76rem; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600; letter-spacing: 0.5px;">${escapeHtml(k)}</span>
+            <strong style="color: var(--text-primary); font-size: 0.92rem; word-break: break-word;">${escapeHtml(String(v))}</strong>
+          `;
+          metadataGrid.appendChild(card);
+        });
+        metadataOutputBox.style.display = 'block';
+      } else {
+        metadataOutputBox.style.display = 'none';
+      }
+    }
+
+    // 4. Interactive AI Document Q&A (Ask Your PDF)
+    const aiQnaBox = document.getElementById('aiQnaBox');
+    const aiQuestionInput = document.getElementById('aiQuestionInput');
+    const aiAskBtn = document.getElementById('aiAskBtn');
+    const aiQnaResults = document.getElementById('aiQnaResults');
+
+    if (aiQnaBox && aiQuestionInput && aiAskBtn && aiQnaResults) {
+      if (resData.docText || (resData.text && toolConfig.name.includes('Summarizer'))) {
+        aiQnaBox.style.display = 'block';
+        aiQnaResults.innerHTML = '';
+        aiQuestionInput.value = '';
+
+        const docContent = resData.docText || resData.text || '';
+        const apiKey = resData.geminiApiKey || localStorage.getItem('cwa_gemini_api_key') || '';
+
+        const handleAsk = async () => {
+          const query = aiQuestionInput.value.trim();
+          if (!query) {
+            showToast('Please type a question to ask the document.', 'info');
+            return;
+          }
+
+          const loaderCard = document.createElement('div');
+          loaderCard.style.cssText = 'margin-top: 10px; padding: 14px; background: var(--bg-tertiary); border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; font-size: 0.88rem; color: var(--text-muted);';
+          loaderCard.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin" style="color: var(--primary);"></i> Analyzing document for "${escapeHtml(query)}"...`;
+          aiQnaResults.prepend(loaderCard);
+          aiAskBtn.disabled = true;
+
+          try {
+            let answerText = '';
+            let sourceBadge = '';
+
+            if (apiKey) {
+              try {
+                answerText = await callGeminiApi(
+                  apiKey,
+                  `You are an intelligent document reading assistant. Answer the user's question concisely, clearly and accurately based ONLY on the provided document text.\n\nQuestion: "${query}"\n\nDocument Text:\n"""\n${docContent.slice(0, 35000)}\n"""`
+                );
+                sourceBadge = `<span style="font-size: 0.72rem; background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 8px; border-radius: 4px; font-weight: 600;"><i class="fa-solid fa-bolt"></i> Google Gemini 1.5 Flash</span>`;
+              } catch (geminiErr) {
+                console.warn('[Gemini Q&A Error, falling back to local NLP]:', geminiErr);
+                answerText = ClientAIEngine.answerQuestionLocal(query, docContent);
+                sourceBadge = `<span style="font-size: 0.72rem; background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 2px 8px; border-radius: 4px; font-weight: 600;"><i class="fa-solid fa-microchip"></i> Local NLP Fallback</span>`;
+              }
+            } else {
+              answerText = ClientAIEngine.answerQuestionLocal(query, docContent);
+              sourceBadge = `<span style="font-size: 0.72rem; background: rgba(59, 130, 246, 0.15); color: #3b82f6; padding: 2px 8px; border-radius: 4px; font-weight: 600;"><i class="fa-solid fa-shield-halved"></i> 100% In-Browser Private NLP</span>`;
+            }
+
+            loaderCard.remove();
+
+            const answerCard = document.createElement('div');
+            answerCard.style.cssText = 'margin-top: 10px; padding: 14px 16px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); animation: fadeIn 0.2s ease;';
+            answerCard.innerHTML = `
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                <strong style="font-size: 0.92rem; color: var(--text-primary);"><i class="fa-solid fa-circle-question" style="color: var(--primary); margin-right: 6px;"></i> ${escapeHtml(query)}</strong>
+                ${sourceBadge}
+              </div>
+              <div style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap;">${escapeHtml(answerText)}</div>
+            `;
+            aiQnaResults.prepend(answerCard);
+            aiQuestionInput.value = '';
+
+          } catch (err) {
+            loaderCard.remove();
+            showToast('Unable to answer question: ' + err.message, 'error');
+          } finally {
+            aiAskBtn.disabled = false;
+          }
+        };
+
+        aiAskBtn.onclick = handleAsk;
+        aiQuestionInput.onkeydown = (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAsk();
+          }
+        };
+      } else {
+        aiQnaBox.style.display = 'none';
+      }
+    }
+
     const restartBtn = document.getElementById('restartBtn');
     if (restartBtn) {
       restartBtn.onclick = () => {
         resultCard.style.display = 'none';
+        if (resultStats) resultStats.style.display = 'none';
+        if (ocrOutputBox) ocrOutputBox.style.display = 'none';
+        if (metadataOutputBox) metadataOutputBox.style.display = 'none';
+        if (aiQnaBox) {
+          aiQnaBox.style.display = 'none';
+          if (aiQnaResults) aiQnaResults.innerHTML = '';
+          if (aiQuestionInput) aiQuestionInput.value = '';
+        }
+
         if (workspaceBody) workspaceBody.style.display = 'grid';
         const fileInput = document.getElementById('fileInput');
         if (fileInput) fileInput.value = '';

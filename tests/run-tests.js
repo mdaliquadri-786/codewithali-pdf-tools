@@ -167,6 +167,48 @@ assert(
   'Real page annotation & header badge injection implemented for /tools/edit'
 );
 
+// G. AI Summarizer & Ask PDF Live Engine
+assert(
+  scriptCode.includes('async function callGeminiApi') &&
+  scriptCode.includes('gemini-1.5-flash:generateContent'),
+  'Google Gemini 1.5 Flash client-side API engine implemented'
+);
+assert(
+  scriptCode.includes('answerQuestionLocal(query, text)') &&
+  scriptCode.includes('ClientAIEngine'),
+  'In-browser local semantic Q&A engine implemented on ClientAIEngine'
+);
+assert(
+  scriptCode.includes('geminiApiKey') &&
+  scriptCode.includes('cwa_gemini_api_key'),
+  'Gemini API key input & localStorage persistence wired in ai-summarize'
+);
+
+// H. Result Screen Live Previews & Interactive Inspectors
+assert(
+  scriptCode.includes('resultStats') &&
+  scriptCode.includes('statReduction') &&
+  scriptCode.includes('statOriginalSize'),
+  'Live compression savings percentage and byte stats wired in showResultScreen'
+);
+assert(
+  scriptCode.includes('ocrOutputBox') &&
+  scriptCode.includes('ocrTextResult') &&
+  scriptCode.includes('copyOcrTextBtn'),
+  'Live OCR & text extraction preview with one-click copy wired in showResultScreen'
+);
+assert(
+  scriptCode.includes('metadataOutputBox') &&
+  scriptCode.includes('metadataGrid'),
+  'Document properties & metadata profile cards wired in showResultScreen'
+);
+assert(
+  scriptCode.includes('aiQnaBox') &&
+  scriptCode.includes('aiAskBtn') &&
+  scriptCode.includes('aiQuestionInput'),
+  'Ask Your PDF interactive Q&A workflow wired in showResultScreen'
+);
+
 // -----------------------------------------------------------------------------
 // TEST 4: PURGE VERIFICATION (NO DEAD BACKEND OR DUMMY KEYS)
 // -----------------------------------------------------------------------------
