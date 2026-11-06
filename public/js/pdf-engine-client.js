@@ -472,6 +472,12 @@ window.ClientPDFEngine = {
       res.message = 'Watermark stamped successfully via Background Worker!';
       return res;
     } catch (err) {
+      if (window.Engine1_PDFLib && typeof window.Engine1_PDFLib.addWatermark === 'function') {
+        const blob = await window.Engine1_PDFLib.addWatermark(file, text, options);
+        const res = this.downloadBlob(blob, `CodeWithAli_Watermarked_${file.name}`);
+        res.message = 'Watermark stamped successfully (High-Fidelity Engine)!';
+        return res;
+      }
       if (!window.PDFLib) throw new Error('PDF library loading...');
       const { PDFDocument, rgb, degrees, StandardFonts } = window.PDFLib;
       const buffer = await this.readAsArrayBuffer(file);

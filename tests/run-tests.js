@@ -257,7 +257,7 @@ assert(pkg.scripts['generate-tool-pages'] === 'node generate-tool-pages.js', 'pa
 // -----------------------------------------------------------------------------
 console.log('\n--- 5. OFFLINE SERVICE WORKER CACHE AUDIT ---');
 const swCode = fs.readFileSync(path.join(rootDir, 'public/sw.js'), 'utf8');
-assert(swCode.includes('v14'), 'Service Worker cache bumped to v14');
+assert(swCode.includes('v15'), 'Service Worker cache bumped to v15');
 
 const coreAssetsMatch = swCode.match(/const CORE_ASSETS = \[([\s\S]*?)\];/);
 assert(!!coreAssetsMatch, 'CORE_ASSETS list found in sw.js');

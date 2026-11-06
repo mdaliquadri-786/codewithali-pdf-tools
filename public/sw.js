@@ -3,7 +3,7 @@
  * Provides True Offline Mode by aggressively caching local assets and external CDNs.
  */
 
-const CACHE_NAME = 'cwa-pdf-tools-offline-v14';
+const CACHE_NAME = 'cwa-pdf-tools-offline-v15';
 
 // 1. Pre-cache list (Assets to download immediately on first load)
 const CORE_ASSETS = [
@@ -25,8 +25,13 @@ const CORE_ASSETS = [
     '/js/pdfa-engine.js',
     '/js/real-engine-overrides.js',
     '/manifest.json',
-    'https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
+    'https://cdn.jsdelivr.net/npm/@cantoo/pdf-lib@2.11.1/dist/pdf-lib.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js'
 ];
 
 // Install Event: Download and save CORE_ASSETS

@@ -519,43 +519,107 @@ const Engine1_PDFLib = {
     return new Blob([bytes], { type: 'application/pdf' });
   },
 
+  renderWatermarkToPng(text, width, height, options = {}) {
+    try {
+      const canvas = document.createElement('canvas');
+      const dpr = 2;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.scale(dpr, dpr);
+
+      const opacity = parseFloat(options.opacity) || 0.3;
+      const fontSize = parseInt(options.fontSize, 10) || 44;
+      const position = options.position || 'diagonal';
+
+      ctx.fillStyle = `rgba(229, 50, 45, ${opacity})`;
+      ctx.font = `bold ${fontSize}px "Inter", "Amiri", "Traditional Arabic", "Segoe UI", "Noto Sans", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      if (position === 'diagonal') {
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        ctx.rotate((-45 * Math.PI) / 180);
+        ctx.fillText(text, 0, 0);
+        ctx.restore();
+      } else if (position === 'top') {
+        ctx.fillText(text, width / 2, 80);
+      } else if (position === 'bottom') {
+        ctx.fillText(text, width / 2, height - 60);
+      } else {
+        ctx.fillText(text, width / 2, height / 2);
+      }
+
+      const dataUrl = canvas.toDataURL('image/png');
+      MemoryManager.clearCanvas(canvas);
+      return dataUrl;
+    } catch (e) {
+      console.warn('Canvas watermark rendering notice:', e.message);
+      return null;
+    }
+  },
+
   async addWatermark(file, text, options = {}) {
     const { PDFDocument, rgb, degrees, StandardFonts } = await this.ensureLibrary();
     const buffer = await this.readFileAsArrayBuffer(file);
     const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-    const font = await doc.embedFont(StandardFonts.HelveticaBold);
     const opacity = parseFloat(options.opacity) || 0.3;
     const fontSize = parseInt(options.fontSize, 10) || 44;
     const position = options.position || 'diagonal';
 
-    doc.getPages().forEach(page => {
-      const { width, height } = page.getSize();
-      const textWidth = font.widthOfTextAtSize(text, fontSize);
-      const textHeight = font.heightAtSize(fontSize);
-      let x = (width - textWidth) / 2;
-      let y = (height - textHeight) / 2;
-      let rotateAngle = 0;
+    // Check if text can be cleanly encoded by standard Latin-1/WinAnsi fonts
+    const isStandardLatin = /^[\u0020-\u007E\u00A0-\u00FF\s]*$/.test(text);
 
-      if (position === 'diagonal') {
-        rotateAngle = 45;
-        x = width * 0.25;
-        y = height * 0.25;
-      } else if (position === 'top') {
-        y = height - 100;
-      } else if (position === 'bottom') {
-        y = 60;
+    if (isStandardLatin) {
+      try {
+        const font = await doc.embedFont(StandardFonts.HelveticaBold);
+        doc.getPages().forEach(page => {
+          const { width, height } = page.getSize();
+          const textWidth = font.widthOfTextAtSize(text, fontSize);
+          const textHeight = font.heightAtSize(fontSize);
+          let x = (width - textWidth) / 2;
+          let y = (height - textHeight) / 2;
+          let rotateAngle = 0;
+
+          if (position === 'diagonal') {
+            rotateAngle = 45;
+            x = width * 0.25;
+            y = height * 0.25;
+          } else if (position === 'top') {
+            y = height - 100;
+          } else if (position === 'bottom') {
+            y = 60;
+          }
+
+          page.drawText(text, {
+            x,
+            y,
+            size: fontSize,
+            font,
+            color: rgb(0.85, 0.2, 0.2),
+            opacity,
+            rotate: degrees(rotateAngle)
+          });
+        });
+
+        const bytes = await doc.save({ useObjectStreams: true });
+        return new Blob([bytes], { type: 'application/pdf' });
+      } catch (fontErr) {
+        console.warn('[Watermark] Vector Latin font fallback to high-res Unicode canvas:', fontErr.message);
       }
+    }
 
-      page.drawText(text, {
-        x,
-        y,
-        size: fontSize,
-        font,
-        color: rgb(0.85, 0.2, 0.2),
-        opacity,
-        rotate: degrees(rotateAngle)
-      });
-    });
+    // High-Res Multilingual Canvas Rendering (Supports Arabic, Urdu, Hebrew, Hindi, CJK, Emojis)
+    for (const page of doc.getPages()) {
+      const { width, height } = page.getSize();
+      const pngDataUrl = this.renderWatermarkToPng(text, width, height, options);
+      if (pngDataUrl) {
+        const pngImage = await doc.embedPng(pngDataUrl);
+        page.drawImage(pngImage, { x: 0, y: 0, width, height });
+      }
+    }
 
     const bytes = await doc.save({ useObjectStreams: true });
     return new Blob([bytes], { type: 'application/pdf' });
@@ -609,43 +673,132 @@ const Engine1_PDFLib = {
     return new Blob([bytes], { type: 'application/pdf' });
   },
 
-  async markdownToPDF(text) {
-    const { PDFDocument, rgb, StandardFonts } = await this.ensureLibrary();
+  async renderMultilingualMarkdown(text) {
+    const { PDFDocument } = await this.ensureLibrary();
     const doc = await PDFDocument.create();
-    const font = await doc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
-    let page = doc.addPage([595.28, 841.89]);
-    const { height, width } = page.getSize();
-    let y = height - 50;
-
     const lines = (text || '').split('\n');
+    const rtlRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\u0590-\u05FF]/;
+    const isRtl = rtlRegex.test(text || '');
+
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const dpr = 2;
+
+    const pages = [];
+    let curCanvas = document.createElement('canvas');
+    curCanvas.width = Math.round(pageWidth * dpr);
+    curCanvas.height = Math.round(pageHeight * dpr);
+    let curCtx = curCanvas.getContext('2d');
+    curCtx.scale(dpr, dpr);
+    curCtx.fillStyle = '#ffffff';
+    curCtx.fillRect(0, 0, pageWidth, pageHeight);
+
+    let y = 60;
+    const margin = 50;
+
     for (const rawLine of lines) {
       const line = rawLine.trim();
-      if (!line) { y -= 14; continue; }
-      if (y < 60) {
-        page = doc.addPage([595.28, 841.89]);
-        y = height - 50;
+      if (!line) { y += 16; continue; }
+      if (y > pageHeight - 60) {
+        pages.push(curCanvas);
+        curCanvas = document.createElement('canvas');
+        curCanvas.width = Math.round(pageWidth * dpr);
+        curCanvas.height = Math.round(pageHeight * dpr);
+        curCtx = curCanvas.getContext('2d');
+        curCtx.scale(dpr, dpr);
+        curCtx.fillStyle = '#ffffff';
+        curCtx.fillRect(0, 0, pageWidth, pageHeight);
+        y = 60;
       }
+
       const isH1 = line.startsWith('# ');
       const isH2 = line.startsWith('## ');
       const isBullet = line.startsWith('* ') || line.startsWith('- ');
       const cleanLine = line.replace(/^[#*\-]+\s*/, '');
-      const curFont = (isH1 || isH2) ? fontBold : font;
-      const curSize = isH1 ? 18 : (isH2 ? 14 : 11);
-      const curColor = isH1 ? rgb(0.9, 0.2, 0.2) : rgb(0.12, 0.16, 0.23);
 
-      page.drawText((isBullet ? '• ' : '') + cleanLine, {
-        x: isBullet ? 60 : 50,
-        y,
-        size: curSize,
-        font: curFont,
-        color: curColor,
-        maxWidth: width - 100
-      });
-      y -= (curSize + 8);
+      curCtx.direction = isRtl ? 'rtl' : 'ltr';
+      curCtx.textAlign = isRtl ? 'right' : 'left';
+      const xPos = isRtl ? (pageWidth - margin - (isBullet ? 15 : 0)) : (margin + (isBullet ? 15 : 0));
+
+      if (isH1) {
+        curCtx.font = 'bold 22px "Inter", "Amiri", "Traditional Arabic", "Segoe UI", sans-serif';
+        curCtx.fillStyle = '#e5322d';
+        curCtx.fillText(cleanLine, xPos, y);
+        y += 32;
+      } else if (isH2) {
+        curCtx.font = 'bold 16px "Inter", "Amiri", "Traditional Arabic", "Segoe UI", sans-serif';
+        curCtx.fillStyle = '#1e293b';
+        curCtx.fillText(cleanLine, xPos, y);
+        y += 26;
+      } else {
+        curCtx.font = '13px "Inter", "Amiri", "Traditional Arabic", "Segoe UI", sans-serif';
+        curCtx.fillStyle = '#334155';
+        curCtx.fillText((isBullet ? '• ' : '') + cleanLine, xPos, y);
+        y += 20;
+      }
     }
+    pages.push(curCanvas);
+
+    for (const cv of pages) {
+      const p = doc.addPage([pageWidth, pageHeight]);
+      const dataUrl = cv.toDataURL('image/png');
+      const pngImg = await doc.embedPng(dataUrl);
+      p.drawImage(pngImg, { x: 0, y: 0, width: pageWidth, height: pageHeight });
+      MemoryManager.clearCanvas(cv);
+    }
+
     const bytes = await doc.save({ useObjectStreams: true });
     return new Blob([bytes], { type: 'application/pdf' });
+  },
+
+  async markdownToPDF(text) {
+    const { PDFDocument, rgb, StandardFonts } = await this.ensureLibrary();
+    const isStandardLatin = /^[\u0020-\u007E\u00A0-\u00FF\s\r\n]*$/.test(text || '');
+
+    if (isStandardLatin) {
+      try {
+        const doc = await PDFDocument.create();
+        const font = await doc.embedFont(StandardFonts.Helvetica);
+        const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+        let page = doc.addPage([595.28, 841.89]);
+        const { height, width } = page.getSize();
+        let y = height - 50;
+
+        const lines = (text || '').split('\n');
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line) { y -= 14; continue; }
+          if (y < 60) {
+            page = doc.addPage([595.28, 841.89]);
+            y = height - 50;
+          }
+          const isH1 = line.startsWith('# ');
+          const isH2 = line.startsWith('## ');
+          const isBullet = line.startsWith('* ') || line.startsWith('- ');
+          const cleanLine = line.replace(/^[#*\-]+\s*/, '');
+          const curFont = (isH1 || isH2) ? fontBold : font;
+          const curSize = isH1 ? 18 : (isH2 ? 14 : 11);
+          const curColor = isH1 ? rgb(0.9, 0.2, 0.2) : rgb(0.12, 0.16, 0.23);
+
+          page.drawText((isBullet ? '• ' : '') + cleanLine, {
+            x: isBullet ? 60 : 50,
+            y,
+            size: curSize,
+            font: curFont,
+            color: curColor,
+            maxWidth: width - 100
+          });
+          y -= (curSize + 8);
+        }
+        const bytes = await doc.save({ useObjectStreams: true });
+        return new Blob([bytes], { type: 'application/pdf' });
+      } catch (err) {
+        console.warn('[Markdown] Fallback to high-res canvas renderer:', err.message);
+      }
+    }
+
+    // Multilingual Canvas Renderer for Markdown (Arabic, Urdu, Indic, CJK)
+    return this.renderMultilingualMarkdown(text);
   },
 
   async pdfToPdfa(file) {
@@ -751,6 +904,9 @@ const Engine2_PDFJS = {
     const totalPages = pdf.numPages;
     const wb = window.XLSX.utils.book_new();
 
+    // Regex to detect Right-to-Left scripts (Arabic, Urdu, Persian, Hebrew)
+    const rtlRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\u0590-\u05FF]/;
+
     for (let p = 1; p <= totalPages; p++) {
       if (onProgress) onProgress(Math.round((p / totalPages) * 100));
       const page = await pdf.getPage(p);
@@ -763,6 +919,9 @@ const Engine2_PDFJS = {
         continue;
       }
 
+      // Check if page contains RTL text
+      const pageHasRTL = items.some(item => rtlRegex.test(item.str || ''));
+
       const rowTolerance = 6;
       const sortedItems = items.slice().sort((a, b) => {
         const yA = a.transform ? a.transform[5] : 0;
@@ -770,7 +929,8 @@ const Engine2_PDFJS = {
         if (Math.abs(yA - yB) > rowTolerance) return yB - yA;
         const xA = a.transform ? a.transform[4] : 0;
         const xB = b.transform ? b.transform[4] : 0;
-        return xA - xB;
+        // In RTL tables, the visually rightmost column is Column 1, so sort X descending
+        return pageHasRTL ? (xB - xA) : (xA - xB);
       });
 
       const rows = [];
@@ -791,7 +951,8 @@ const Engine2_PDFJS = {
           currentY = y;
         } else {
           const prevItem = currentRow[currentRow.length - 1];
-          if (prevItem && (x - (prevItem.x + 15)) < 15) {
+          // Tolerant horizontal grouping across LTR and RTL
+          if (prevItem && Math.abs(x - prevItem.x) < 25) {
             prevItem.str += ' ' + str;
           } else {
             currentRow.push({ x, str });
@@ -803,6 +964,15 @@ const Engine2_PDFJS = {
       }
 
       const ws = window.XLSX.utils.aoa_to_sheet(rows.length > 0 ? rows : [['[Empty Page]']]);
+
+      // If page is RTL, enable native Excel Right-To-Left spreadsheet rendering
+      if (pageHasRTL) {
+        ws['!views'] = [{ rightToLeft: true }];
+        if (!wb.Workbook) wb.Workbook = {};
+        if (!wb.Workbook.Views) wb.Workbook.Views = [];
+        wb.Workbook.Views.push({ RTL: true });
+      }
+
       window.XLSX.utils.book_append_sheet(wb, ws, `Page ${p}`);
     }
 
@@ -2325,6 +2495,10 @@ function initWorkspace() {
         showToast(`Please select at least ${min} file${min > 1 ? 's' : ''} to proceed.`, 'error');
         return;
       }
+      if (uploadedFiles && uploadedFiles.length > 0 && uploadedFiles.some(f => f.size === 0)) {
+        showToast('One or more selected files are empty (0 bytes). Please upload a valid document.', 'error');
+        return;
+      }
 
       showProcessingOverlay();
       setProgressBar(25);
@@ -2847,7 +3021,14 @@ function initWorkspace() {
 
       } catch (err) {
         hideProcessingOverlay();
-        showToast(err.message || 'An unexpected error occurred during processing.', 'error');
+        let userMsg = err.message || 'An unexpected error occurred during processing.';
+        const lower = userMsg.toLowerCase();
+        if (lower.includes('encrypted') || lower.includes('password') || lower.includes('decrypt')) {
+          userMsg = 'This PDF is password-protected. Please decrypt it using our "Unlock PDF" tool first, then try again.';
+        } else if (lower.includes('winansi cannot encode')) {
+          userMsg = 'The document or text contains characters outside standard Latin encoding. We have enabled high-res Unicode rendering.';
+        }
+        showToast(userMsg, 'error');
         console.error('[Action Error]', err);
       }
     };

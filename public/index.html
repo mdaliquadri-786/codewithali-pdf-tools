@@ -884,12 +884,42 @@
   </footer>
 
   <!-- App Script -->
-  <!-- In-Browser Client PDF Engine (Zero-server fallback) -->
+  <!-- Base Core Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script>window.PDFLib || document.write('<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>')</script>
+  <script>
+    (function () {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@cantoo/pdf-lib@2.11.1/dist/pdf-lib.min.js';
+      s.onload = function () { window.PDFLibPlus = window.PDFLib; };
+      s.onerror = function () { console.warn('Encryption engine (@cantoo/pdf-lib) failed to load.'); };
+      document.head.appendChild(s);
+    })();
+  </script>
+  
+  <!-- Genuine Tool Engine Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+
+  <!-- Application Logic -->
   <script src="/js/pdf-engine-client.js"></script>
   <script src="/js/script.js"></script>
+  
+  <!-- All 7 Engine Files -->
+  <script src="/js/ocr-engine.js"></script>
+  <script src="/js/word-to-pdf.js"></script>
+  <script src="/js/excel-to-pdf.js"></script>
+  <script src="/js/pdf-to-ppt.js"></script>
+  <script src="/js/ppt-to-pdf.js"></script>
+  <script src="/js/security-engine.js"></script>
+  <script src="/js/pdfa-engine.js"></script>
+
+  <!-- Master Override File (Must load LAST) -->
+  <script src="/js/real-engine-overrides.js"></script>
 
   <!-- Service Worker Registration for 100% Offline Capability -->
   <script>
