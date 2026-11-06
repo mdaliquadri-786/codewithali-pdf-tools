@@ -85,7 +85,8 @@ self.addEventListener('fetch', (event) => {
                 return networkResponse;
             }).catch(() => {
                 // 4. If network fails (completely offline) and asset isn't cached, show 404
-                if (event.request.headers.get('accept').includes('text/html')) {
+                const accept = event.request.headers.get('accept') || '';
+                if (accept.includes('text/html')) {
                     return caches.match('/404.html');
                 }
             });

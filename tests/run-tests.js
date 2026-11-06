@@ -209,6 +209,15 @@ assert(
   'Ask Your PDF interactive Q&A workflow wired in showResultScreen'
 );
 
+// I. Standalone Engine1_PDFLib Fallback Methods Complete
+const engine1Methods = ['mergePDFs', 'splitPDF', 'rotatePDF', 'compressPDF', 'addWatermark', 'addPageNumbers', 'imageToPDF', 'markdownToPDF', 'organizePDF', 'deletePages', 'flattenPDF', 'editMetadata', 'signPDF', 'repairPDF', 'pdfToPdfa'];
+engine1Methods.forEach(method => {
+  assert(
+    scriptCode.includes(`${method}(`),
+    `Engine1_PDFLib standalone fallback method implemented: ${method}`
+  );
+});
+
 // -----------------------------------------------------------------------------
 // TEST 4: PURGE VERIFICATION (NO DEAD BACKEND OR DUMMY KEYS)
 // -----------------------------------------------------------------------------

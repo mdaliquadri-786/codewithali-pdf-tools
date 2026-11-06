@@ -270,7 +270,12 @@ function initSignatureCanvas() {
 // =============================================================================
 const MemoryManager = {
   activeUrls: new Set(),
-  createTrackedUrl(blob) {
+  createTrackedUrl(output) {
+    if (output && typeof output.downloadUrl === 'string' && output.downloadUrl.length > 0) {
+      return output.downloadUrl;
+    }
+    if (!output) throw new TypeError('Cannot create download URL for empty output.');
+    const blob = (output instanceof Blob) ? output : new Blob([output], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     this.activeUrls.add(url);
     return url;
@@ -504,6 +509,143 @@ const Engine1_PDFLib = {
       }
       throw new Error('This PDF has severe structural damage and could not be recovered: ' + e.message);
     }
+  },
+
+  async compressPDF(file, level = 'balanced') {
+    const { PDFDocument } = await this.ensureLibrary();
+    const buffer = await this.readFileAsArrayBuffer(file);
+    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    const bytes = await doc.save({ useObjectStreams: true, addDefaultPage: false });
+    return new Blob([bytes], { type: 'application/pdf' });
+  },
+
+  async addWatermark(file, text, options = {}) {
+    const { PDFDocument, rgb, degrees, StandardFonts } = await this.ensureLibrary();
+    const buffer = await this.readFileAsArrayBuffer(file);
+    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    const font = await doc.embedFont(StandardFonts.HelveticaBold);
+    const opacity = parseFloat(options.opacity) || 0.3;
+    const fontSize = parseInt(options.fontSize, 10) || 44;
+    const position = options.position || 'diagonal';
+
+    doc.getPages().forEach(page => {
+      const { width, height } = page.getSize();
+      const textWidth = font.widthOfTextAtSize(text, fontSize);
+      const textHeight = font.heightAtSize(fontSize);
+      let x = (width - textWidth) / 2;
+      let y = (height - textHeight) / 2;
+      let rotateAngle = 0;
+
+      if (position === 'diagonal') {
+        rotateAngle = 45;
+        x = width * 0.25;
+        y = height * 0.25;
+      } else if (position === 'top') {
+        y = height - 100;
+      } else if (position === 'bottom') {
+        y = 60;
+      }
+
+      page.drawText(text, {
+        x,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(0.85, 0.2, 0.2),
+        opacity,
+        rotate: degrees(rotateAngle)
+      });
+    });
+
+    const bytes = await doc.save({ useObjectStreams: true });
+    return new Blob([bytes], { type: 'application/pdf' });
+  },
+
+  async addPageNumbers(file, options = {}) {
+    const { PDFDocument, rgb, StandardFonts } = await this.ensureLibrary();
+    const buffer = await this.readFileAsArrayBuffer(file);
+    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const pages = doc.getPages();
+    const total = pages.length;
+    const pos = options.position || 'bottom-center';
+
+    pages.forEach((page, idx) => {
+      const { width, height } = page.getSize();
+      const pageStr = `Page ${idx + 1} of ${total}`;
+      const textWidth = font.widthOfTextAtSize(pageStr, 10);
+      let x = (width - textWidth) / 2;
+      let y = 25;
+
+      if (pos === 'bottom-left') x = 30;
+      else if (pos === 'bottom-right') x = width - textWidth - 30;
+      else if (pos === 'top-center') { x = (width - textWidth) / 2; y = height - 25; }
+      else if (pos === 'top-right') { x = width - textWidth - 30; y = height - 25; }
+
+      page.drawText(pageStr, {
+        x,
+        y,
+        size: 10,
+        font,
+        color: rgb(0.2, 0.2, 0.2)
+      });
+    });
+
+    const bytes = await doc.save({ useObjectStreams: true });
+    return new Blob([bytes], { type: 'application/pdf' });
+  },
+
+  async imageToPDF(files) {
+    const { PDFDocument } = await this.ensureLibrary();
+    const doc = await PDFDocument.create();
+    for (const f of files) {
+      const buf = await this.readFileAsArrayBuffer(f);
+      const isPng = f.type === 'image/png' || f.name.toLowerCase().endsWith('.png');
+      const img = isPng ? await doc.embedPng(buf) : await doc.embedJpg(buf);
+      const page = doc.addPage([img.width, img.height]);
+      page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+    }
+    const bytes = await doc.save({ useObjectStreams: true });
+    return new Blob([bytes], { type: 'application/pdf' });
+  },
+
+  async markdownToPDF(text) {
+    const { PDFDocument, rgb, StandardFonts } = await this.ensureLibrary();
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+    let page = doc.addPage([595.28, 841.89]);
+    const { height, width } = page.getSize();
+    let y = height - 50;
+
+    const lines = (text || '').split('\n');
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) { y -= 14; continue; }
+      if (y < 60) {
+        page = doc.addPage([595.28, 841.89]);
+        y = height - 50;
+      }
+      const isH1 = line.startsWith('# ');
+      const isH2 = line.startsWith('## ');
+      const isBullet = line.startsWith('* ') || line.startsWith('- ');
+      const cleanLine = line.replace(/^[#*\-]+\s*/, '');
+      const curFont = (isH1 || isH2) ? fontBold : font;
+      const curSize = isH1 ? 18 : (isH2 ? 14 : 11);
+      const curColor = isH1 ? rgb(0.9, 0.2, 0.2) : rgb(0.12, 0.16, 0.23);
+
+      page.drawText((isBullet ? '• ' : '') + cleanLine, {
+        x: isBullet ? 60 : 50,
+        y,
+        size: curSize,
+        font: curFont,
+        color: curColor,
+        maxWidth: width - 100
+      });
+      y -= (curSize + 8);
+    }
+    const bytes = await doc.save({ useObjectStreams: true });
+    return new Blob([bytes], { type: 'application/pdf' });
   },
 
   async pdfToPdfa(file) {
@@ -2597,12 +2739,15 @@ function initWorkspace() {
 
         setProgressBar(100);
         const downloadUrl = MemoryManager.createTrackedUrl(resultBlob);
+        const finalSize = (resultBlob instanceof Blob)
+          ? resultBlob.size
+          : (typeof resultBlob?.compressedSize === 'number' ? resultBlob.compressedSize : (resultBlob?.size || (file ? file.size : 0)));
         const resData = {
           success: true,
           downloadUrl,
           filename: downloadFilename,
           originalSize: file ? file.size : 0,
-          compressedSize: resultBlob.size,
+          compressedSize: finalSize,
           text: resDataText,
           docText: resDataDocText,
           geminiApiKey: resDataGeminiKey,
