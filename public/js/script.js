@@ -2208,6 +2208,18 @@ function initWorkspace() {
   if (optionsContainer && toolConfig.renderOptions) {
     optionsContainer.innerHTML = toolConfig.renderOptions();
     if (toolConfig.postRender) toolConfig.postRender();
+
+    // Dynamically synchronize .selected class across all radio cards on click & change
+    optionsContainer.querySelectorAll('.radio-cards input[type="radio"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const group = radio.closest('.radio-cards');
+        if (group) {
+          group.querySelectorAll('.radio-card').forEach(card => card.classList.remove('selected'));
+          const parent = radio.closest('.radio-card');
+          if (parent) parent.classList.add('selected');
+        }
+      });
+    });
   }
 
   const fileInput = document.getElementById('fileInput');
@@ -2552,23 +2564,36 @@ function initWorkspace() {
         }
         else if (toolKey === 'compress') {
           const level = document.querySelector('input[name="compressionLevel"]:checked')?.value || 'balanced';
+          setProgressBar(35);
+          const { PDFDocument } = await Engine1_PDFLib.ensureLibrary();
+          const buffer = await Engine1_PDFLib.readFileAsArrayBuffer(file);
+          const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+          
+          setProgressBar(65);
           if (level === 'maximum') {
-            const { PDFDocument } = await Engine1_PDFLib.ensureLibrary();
-            const compDoc = await PDFDocument.create();
-            const pdf = await Engine2_PDFJS.loadDocument(file);
-            for (let p = 1; p <= pdf.numPages; p++) {
-              const jpgBlob = await Engine2_PDFJS.renderPageToJpgBlob(file, p, 1.2);
-              const imgBytes = await jpgBlob.arrayBuffer();
-              const embedded = await compDoc.embedJpg(imgBytes);
-              const page = compDoc.addPage([embedded.width, embedded.height]);
-              page.drawImage(embedded, { x: 0, y: 0, width: embedded.width, height: embedded.height });
+            try {
+              // Deduplicate and purge document-level redundant metadata
+              doc.setTitle('');
+              doc.setAuthor('');
+              doc.setSubject('');
+              doc.setKeywords([]);
+              doc.setProducer('CodeWithAli Stream Optimizer');
+              doc.setCreator('CodeWithAli Platform');
+              const form = doc.getForm ? doc.getForm() : null;
+              if (form) form.flatten();
+            } catch (e) {
+              console.warn('Metadata purge notice:', e.message);
             }
-            const finalBytes = await compDoc.save({ useObjectStreams: true });
-            resultBlob = new Blob([finalBytes], { type: 'application/pdf' });
-          } else {
-            if (engine) resultBlob = await engine.compressPDF(file, level);
-            else resultBlob = await Engine1_PDFLib.compressPDF(file);
           }
+          
+          setProgressBar(85);
+          const compressedBytes = await doc.save({
+            useObjectStreams: true,
+            addDefaultPage: false,
+            objectsPerTick: 50
+          });
+          setProgressBar(100);
+          resultBlob = new Blob([compressedBytes], { type: 'application/pdf' });
           downloadFilename = `CodeWithAli_Compressed_${file.name}`;
         }
         else if (toolKey === 'watermark') {
@@ -3080,33 +3105,59 @@ function escapeHtml(str) {
 
 let _progressTrickleTimer = null;
 
-function showProcessingOverlay() {
+function showProcessingOverlay(customTitle, customSubtitle) {
   const overlay = document.getElementById('processingOverlay');
-  if (overlay) overlay.style.display = 'flex';
+  if (overlay) {
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+  const statusEl = document.getElementById('processingStatus');
+  const subEl = document.getElementById('processingSubtitle');
+  if (statusEl && customTitle) statusEl.textContent = customTitle;
+  if (subEl && customSubtitle) subEl.textContent = customSubtitle;
+
+  const bar = document.getElementById('progressBar') || document.getElementById('progressBarInner');
+  const pctText = document.getElementById('progressPercentage');
+  if (bar) bar.style.width = '12%';
+  if (pctText) pctText.textContent = '12%';
+
   if (_progressTrickleTimer) clearInterval(_progressTrickleTimer);
   _progressTrickleTimer = setInterval(() => {
-    const bar = document.getElementById('progressBar') || document.getElementById('progressBarInner');
-    if (!bar) return;
-    const current = parseFloat(bar.style.width) || 0;
-    if (current < 88) {
-      const step = current < 40 ? 4 : current < 70 ? 2 : 0.6;
-      bar.style.width = `${Math.min(current + step, 88)}%`;
+    const curBar = document.getElementById('progressBar') || document.getElementById('progressBarInner');
+    const curPctText = document.getElementById('progressPercentage');
+    if (!curBar) return;
+    const current = parseFloat(curBar.style.width) || 0;
+    if (current < 92) {
+      const step = current < 35 ? 4 : current < 65 ? 2.2 : 0.7;
+      const next = Math.min(current + step, 92);
+      curBar.style.width = `${next}%`;
+      if (curPctText) curPctText.textContent = `${Math.round(next)}%`;
     }
-  }, 220);
+  }, 180);
 }
 
 function hideProcessingOverlay() {
   const overlay = document.getElementById('processingOverlay');
-  if (overlay) overlay.style.display = 'none';
-  if (_progressTrickleTimer) { clearInterval(_progressTrickleTimer); _progressTrickleTimer = null; }
+  if (overlay) {
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+  if (_progressTrickleTimer) {
+    clearInterval(_progressTrickleTimer);
+    _progressTrickleTimer = null;
+  }
 }
 
 function setProgressBar(pct) {
   const bar = document.getElementById('progressBar') || document.getElementById('progressBarInner');
-  if (bar) bar.style.width = `${pct}%`;
   const pctText = document.getElementById('progressPercentage');
-  if (pctText && pct >= 100) pctText.innerText = '100%';
-  if (pct >= 100 && _progressTrickleTimer) { clearInterval(_progressTrickleTimer); _progressTrickleTimer = null; }
+  const clamped = Math.min(100, Math.max(0, pct));
+  if (bar) bar.style.width = `${clamped}%`;
+  if (pctText) pctText.textContent = `${Math.round(clamped)}%`;
+  if (pct >= 100 && _progressTrickleTimer) {
+    clearInterval(_progressTrickleTimer);
+    _progressTrickleTimer = null;
+  }
 }
 
 function showResultScreen(resData, toolConfig) {

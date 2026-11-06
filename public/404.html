@@ -233,16 +233,28 @@
 
     </div>
 
-    <!-- Processing State Overlay -->
-    <div id="processingOverlay" class="processing-overlay">
-      <div class="spinner"></div>
-      <h3 id="processingStatus" class="processing-status">Processing Your Document...</h3>
-      <p id="processingSubtitle" class="processing-subtitle">Please wait while the PDF engine handles your file.</p>
-      <div class="progress-bar-outer">
-        <div id="progressBarInner" class="progress-bar-inner"></div>
-      </div>
-      <div id="progressPercentage" style="font-size: 0.85rem; font-weight: 700; color: var(--primary);">
-        0%
+    <!-- Processing State Full-Screen Modal Overlay -->
+    <div id="processingOverlay" class="processing-overlay" role="dialog" aria-modal="true" aria-labelledby="processingStatus">
+      <div class="processing-card">
+        <div class="processing-icon-pulse">
+          <i class="fa-solid fa-gear fa-spin" style="--fa-animation-duration: 2.5s;"></i>
+        </div>
+        <h3 id="processingStatus" class="processing-status">Processing Your Document...</h3>
+        <p id="processingSubtitle" class="processing-subtitle">Please wait while the client-side engine handles your file in memory.</p>
+        
+        <div class="progress-bar-container">
+          <div class="progress-bar-outer">
+            <div id="progressBarInner" class="progress-bar-inner"></div>
+          </div>
+          <div class="progress-info-row">
+            <span>Client Task Progress</span>
+            <span id="progressPercentage">0%</span>
+          </div>
+        </div>
+
+        <div class="processing-security-badge">
+          <i class="fa-solid fa-shield-halved"></i> 100% In-Browser Privacy • Zero Server Upload
+        </div>
       </div>
     </div>
 
